@@ -2,26 +2,35 @@ const { TABLE, SYNC_INTERVAL_MS, TEAM_EMAIL } = window.APP_CONFIG;
 const CACHE_KEY = 'fast-check-ideas';
 
 const STATUSES = [
-    { id: 'initial', label: 'Ideas Iniciales' },
-    { id: 'discussion', label: 'En Discusión' },
-    { id: 'working', label: 'En Proceso' },
-    { id: 'pending', label: 'Pendiente Publicación' },
-    { id: 'published', label: 'Publicadas' }
+    { id: 'initial', label: 'Ideas Iniciales', color: '#64748b' },
+    { id: 'discussion', label: 'En Discusión', color: '#7c3aed' },
+    { id: 'working', label: 'En Proceso', color: '#2563eb' },
+    { id: 'pending', label: 'Pendiente Publicación', color: '#d97706' },
+    { id: 'published', label: 'Publicadas', color: '#059669' }
 ];
 
 const VERDICTS = [
-    { id: 'verdadero', label: 'Verdadero' },
-    { id: 'falso', label: 'Falso' },
-    { id: 'engañoso', label: 'Engañoso' },
-    { id: 'depende', label: 'Depende' },
-    { id: 'insuficiente', label: 'Evidencia Insuficiente' }
+    { id: 'verdadero', label: 'Verdadero', color: '#059669' },
+    { id: 'falso', label: 'Falso', color: '#dc2626' },
+    { id: 'engañoso', label: 'Engañoso', color: '#ea580c' },
+    { id: 'exagerada', label: 'Exagerada', color: '#d97706' },
+    { id: 'depende', label: 'Depende', color: '#7c3aed' },
+    { id: 'insuficiente', label: 'Evidencia Insuficiente', color: '#64748b' }
 ];
 
 const PRIORITIES = [
-    { id: 'low', label: 'Baja' },
-    { id: 'medium', label: 'Media' },
-    { id: 'high', label: 'Alta' }
+    { id: 'high', label: 'Alta', color: '#dc2626' },
+    { id: 'medium', label: 'Media', color: '#d97706' },
+    { id: 'low', label: 'Baja', color: '#64748b' }
 ];
+
+const FALLBACK_COLOR = '#64748b';
+
+// Busca la opción por id; si el valor no está en la lista (dato antiguo), la
+// crea para mostrarlo tal cual en vez de perderlo.
+function findOption(list, id) {
+    return list.find(o => o.id === id) || { id, label: id, color: FALLBACK_COLOR };
+}
 
 function blankIdea(id, title = '', category = '', priority = 'medium', editedBy = 'Usuario') {
     return {
@@ -50,6 +59,7 @@ let ideas = [];
 let currentEditingId = null;
 let hasUnsavedChanges = false;
 let currentTab = 'initial';
+let searchQuery = '';
 // Solo se sincroniza con Supabase si la carga inicial funcionó; si no, el
 // tablero vacío de Supabase reemplazaría las ideas del cache local.
 let connected = false;
@@ -58,7 +68,7 @@ function showToast(msg, type = 'success', durationMs = 3000) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = msg;
-    document.body.appendChild(toast);
+    document.getElementById('toasts').appendChild(toast);
     setTimeout(() => toast.remove(), durationMs);
 }
 
@@ -130,17 +140,52 @@ setInterval(async () => {
 }, SYNC_INTERVAL_MS);
 
 function render() {
+    renderSummary();
     renderTabs();
     renderContent();
 }
 
+function initials(name) {
+    return String(name || '?').trim().charAt(0).toUpperCase() || '?';
+}
+
+function timeAgo(value) {
+    if (!value) return 'nunca';
+    // Columnas "timestamp without time zone" llegan sin zona: se asumen UTC.
+    const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value}Z`);
+    const seconds = Math.round((date - Date.now()) / 1000);
+    if (Number.isNaN(seconds)) return '';
+    const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+    const units = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
+    for (const [unit, size] of units) {
+        if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit);
+    }
+    return 'hace un momento';
+}
+
+function chip(option, extraClass = '') {
+    return `<span class="chip ${extraClass}" style="--c:${option.color}"><span class="dot"></span>${escapeHtml(option.label)}</span>`;
+}
+
+function renderSummary() {
+    const withVerdict = ideas.filter(i => i.verdict).length;
+    const published = ideas.filter(i => i.status === 'published').length;
+    document.getElementById('summary').textContent =
+        `${ideas.length} ideas · ${withVerdict} con veredicto · ${published} publicadas`;
+}
+
 function renderTabs() {
-    document.getElementById('tabs').innerHTML = STATUSES.map((status) => {
+    document.getElementById('tabs').innerHTML = STATUSES.map((status, index) => {
         const count = ideas.filter(idea => idea.status === status.id).length;
-        return `<button class="tab ${status.id === currentTab ? 'active' : ''}" data-status="${status.id}">${status.label} (${count})</button>`;
+        return `
+            <button class="stage ${status.id === currentTab ? 'active' : ''}" data-status="${status.id}" style="--stage:${status.color}" aria-pressed="${status.id === currentTab}">
+                <div class="stage-step"><span class="stage-dot"></span>Etapa ${index + 1}</div>
+                <div class="stage-label">${status.label}</div>
+                <div class="stage-count">${count}</div>
+            </button>`;
     }).join('');
 
-    document.querySelectorAll('.tab').forEach(tab => {
+    document.querySelectorAll('.stage').forEach(tab => {
         tab.addEventListener('click', () => {
             currentTab = tab.getAttribute('data-status');
             render();
@@ -148,25 +193,37 @@ function renderTabs() {
     });
 }
 
+function matchesSearch(idea) {
+    if (!searchQuery) return true;
+    const haystack = `${idea.id} ${idea.title || ''} ${idea.category || ''}`.toLowerCase();
+    return haystack.includes(searchQuery);
+}
+
 function renderContent() {
-    const filtered = ideas.filter(idea => idea.status === currentTab);
+    const filtered = ideas.filter(idea => idea.status === currentTab && matchesSearch(idea));
     let html = filtered.map(idea => `
-        <div class="card priority-${escapeHtml(idea.priority)}" data-id="${escapeHtml(idea.id)}">
-            <button class="card-delete" data-id="${escapeHtml(idea.id)}" aria-label="Eliminar">🗑️</button>
-            <div class="card-content" data-id="${escapeHtml(idea.id)}">
-                <div class="card-id">#${escapeHtml(idea.id)}</div>
-                <div class="card-title">${escapeHtml(idea.title) || '(sin título)'}</div>
-                <div class="card-badges">
-                    <span class="badge">${escapeHtml(idea.category) || 'Sin categoría'}</span>
-                    ${idea.verdict ? `<span class="badge verdict-${escapeHtml(idea.verdict)}">${escapeHtml(idea.verdict)}</span>` : ''}
-                </div>
-                <div class="card-meta">
-                    ${escapeHtml(idea.last_edited_by || 'Usuario')} · ${idea.last_edited_at ? new Date(idea.last_edited_at).toLocaleString('es-CL') : 'Nunca'}
-                </div>
+        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0">
+            <button class="card-delete" data-id="${escapeHtml(idea.id)}" aria-label="Eliminar idea" title="Eliminar"><svg><use href="#i-trash"/></svg></button>
+            <div class="card-top">
+                <span class="card-id">#${escapeHtml(idea.id)}</span>
+                ${idea.priority ? chip(findOption(PRIORITIES, idea.priority), 'priority') : ''}
             </div>
-        </div>
+            <div class="card-title ${idea.title ? '' : 'untitled'}">${escapeHtml(idea.title) || 'Sin título'}</div>
+            <div class="card-tags">
+                ${idea.verdict ? chip(findOption(VERDICTS, idea.verdict)) : ''}
+                <span class="chip outline">${escapeHtml(idea.category) || 'Sin categoría'}</span>
+            </div>
+            <div class="card-foot">
+                <span class="avatar sm">${escapeHtml(initials(idea.last_edited_by))}</span>
+                <span><strong>${escapeHtml(idea.last_edited_by || 'Usuario')}</strong> · ${escapeHtml(timeAgo(idea.last_edited_at))}</span>
+            </div>
+        </article>
     `).join('');
-    if (!html) html = '<div class="empty">Sin ideas en este estado</div>';
+    if (!html) {
+        html = searchQuery
+            ? `<div class="empty"><div class="empty-icon">🔍</div><strong>Sin resultados</strong>Ninguna idea de esta etapa coincide con "${escapeHtml(searchQuery)}".</div>`
+            : '<div class="empty"><div class="empty-icon">🗂️</div><strong>Nada por aquí todavía</strong>Las ideas que lleguen a esta etapa aparecerán aquí.</div>';
+    }
     document.getElementById('content').innerHTML = `<div class="grid">${html}</div>`;
 
     document.querySelectorAll('.card-delete').forEach(btn => {
@@ -176,8 +233,11 @@ function renderContent() {
         });
     });
 
-    document.querySelectorAll('.card-content').forEach(content => {
-        content.addEventListener('click', () => openModal(content.getAttribute('data-id')));
+    document.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', () => openModal(card.getAttribute('data-id')));
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target === card) openModal(card.getAttribute('data-id'));
+        });
     });
 }
 
@@ -197,9 +257,19 @@ async function createNewIdea() {
     openModal(newIdea.id);
 }
 
-function optionsHtml(list, selected, placeholder) {
-    const first = placeholder ? `<option value="">${placeholder}</option>` : '';
-    return first + list.map(o => `<option value="${o.id}" ${selected === o.id ? 'selected' : ''}>${o.label}</option>`).join('');
+function optionsHtml(list, selected) {
+    const options = selected && !list.some(o => o.id === selected) ? [...list, findOption(list, selected)] : list;
+    return options.map(o => `<option value="${escapeHtml(o.id)}" ${selected === o.id ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
+}
+
+function pillsHtml(name, list, selected, allowEmpty) {
+    const options = selected && !list.some(o => o.id === selected) ? [...list, findOption(list, selected)] : list;
+    const empty = allowEmpty
+        ? `<label class="pill" style="--c:#cbd5e1"><input type="radio" name="${name}" value="" ${selected ? '' : 'checked'}><span>Sin definir</span></label>`
+        : '';
+    return `<div class="pills" role="radiogroup">${empty}${options.map(o => `
+        <label class="pill" style="--c:${o.color}"><input type="radio" name="${name}" value="${escapeHtml(o.id)}" ${selected === o.id ? 'checked' : ''}><span>${escapeHtml(o.label)}</span></label>
+    `).join('')}</div>`;
 }
 
 function openModal(id) {
@@ -208,44 +278,61 @@ function openModal(id) {
     currentEditingId = id;
     hasUnsavedChanges = false;
 
-    document.getElementById('modalTitle').textContent = `#${idea.id} — ${idea.title || '(nueva idea)'}`;
+    const status = findOption(STATUSES, idea.status);
+    document.getElementById('modalEyebrow').innerHTML = `<span>#${escapeHtml(idea.id)}</span>${chip(status)}`;
+    document.getElementById('modalTitle').textContent = idea.title || 'Nueva idea';
     document.getElementById('modalBody').innerHTML = `
-        <div class="form-group">
-            <label class="form-label" for="title">Título</label>
-            <input class="form-input" id="title" value="${escapeHtml(idea.title)}">
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="category">Categoría</label>
-            <input class="form-input" id="category" value="${escapeHtml(idea.category)}">
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="gancho">Gancho / Contexto</label>
-            <textarea class="form-textarea" id="gancho">${escapeHtml(idea.gancho)}</textarea>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="source">Fuente Inicial</label>
-            <input class="form-input" id="source" value="${escapeHtml(idea.source)}">
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="verdict">Veredicto</label>
-            <select class="form-select" id="verdict">${optionsHtml(VERDICTS, idea.verdict, '-- Selecciona --')}</select>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="analysis">Análisis Detallado</label>
-            <textarea class="form-textarea" id="analysis">${escapeHtml(idea.analysis)}</textarea>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="priority">Prioridad</label>
-            <select class="form-select" id="priority">${optionsHtml(PRIORITIES, idea.priority)}</select>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="status">Estado</label>
-            <select class="form-select" id="status">${optionsHtml(STATUSES, idea.status)}</select>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="errorNotes">Protocolo de Error (si falla)</label>
-            <textarea class="form-textarea" id="errorNotes" placeholder="Documentar si se descubre un error...">${escapeHtml(idea.errorNotes)}</textarea>
-        </div>
+        <section class="section">
+            <div class="section-title">La afirmación</div>
+            <div class="form-group">
+                <label class="form-label" for="title">Título</label>
+                <input class="form-input title-input" id="title" value="${escapeHtml(idea.title)}" placeholder="¿Qué se afirma?">
+            </div>
+            <div class="row-2">
+                <div class="form-group">
+                    <label class="form-label" for="category">Categoría</label>
+                    <input class="form-input" id="category" value="${escapeHtml(idea.category)}" placeholder="IA, Startups, Innovación…">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="source">Fuente inicial</label>
+                    <input class="form-input" id="source" value="${escapeHtml(idea.source)}" placeholder="Enlace o referencia">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="gancho">Gancho / Contexto</label>
+                <textarea class="form-textarea" id="gancho" placeholder="¿Por qué vale la pena verificarla?">${escapeHtml(idea.gancho)}</textarea>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-title">Verificación</div>
+            <div class="form-group">
+                <span class="form-label">Veredicto</span>
+                ${pillsHtml('verdict', VERDICTS, idea.verdict, true)}
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="analysis">Análisis detallado</label>
+                <textarea class="form-textarea" id="analysis" style="min-height:120px">${escapeHtml(idea.analysis)}</textarea>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-title">Gestión</div>
+            <div class="row-2">
+                <div class="form-group">
+                    <span class="form-label">Prioridad</span>
+                    ${pillsHtml('priority', PRIORITIES, idea.priority, false)}
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="status">Etapa</label>
+                    <select class="form-select" id="status">${optionsHtml(STATUSES, idea.status)}</select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="errorNotes">Protocolo de error (si falla)</label>
+                <textarea class="form-textarea" id="errorNotes" placeholder="Documentar si se descubre un error...">${escapeHtml(idea.errorNotes)}</textarea>
+            </div>
+        </section>
     `;
 
     document.getElementById('modalBody').querySelectorAll('input, textarea, select').forEach(field => {
@@ -254,6 +341,8 @@ function openModal(id) {
     });
 
     document.getElementById('modal').classList.add('open');
+    document.getElementById('modalBody').scrollTop = 0;
+    if (!idea.title) document.getElementById('title').focus();
 }
 
 function closeModal() {
@@ -288,8 +377,12 @@ async function saveIdea() {
     const idea = ideas.find(i => String(i.id) === String(currentEditingId));
     if (!idea) return;
 
-    for (const field of ['title', 'category', 'priority', 'gancho', 'source', 'verdict', 'analysis', 'status', 'errorNotes']) {
+    for (const field of ['title', 'category', 'gancho', 'source', 'analysis', 'status', 'errorNotes']) {
         idea[field] = document.getElementById(field).value;
+    }
+    for (const field of ['verdict', 'priority']) {
+        const checked = document.querySelector(`#modalBody input[name="${field}"]:checked`);
+        idea[field] = checked ? checked.value : '';
     }
     idea.last_edited_by = editorName();
     idea.last_edited_at = new Date().toISOString();
@@ -338,6 +431,7 @@ function showApp() {
     document.getElementById('loginScreen').hidden = true;
     document.getElementById('appScreen').hidden = false;
     document.getElementById('userEmail').textContent = editorName() || '';
+    document.getElementById('userAvatar').textContent = initials(editorName());
     loadIdeas();
 }
 
@@ -379,6 +473,16 @@ document.getElementById('btnLogout').addEventListener('click', async () => {
 });
 
 document.getElementById('btnNewIdea').addEventListener('click', createNewIdea);
+document.getElementById('search').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim().toLowerCase();
+    renderContent();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('modal').classList.contains('open')) closeModal();
+});
+document.getElementById('modal').addEventListener('click', (e) => {
+    if (e.target.id === 'modal') closeModal();
+});
 document.getElementById('btnSaveIdea').addEventListener('click', saveIdea);
 document.getElementById('btnCloseModal').addEventListener('click', closeModal);
 document.getElementById('btnModalClose').addEventListener('click', closeModal);

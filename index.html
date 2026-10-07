@@ -4,13 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fast Check INNEXA — Workspace</title>
-    <link rel="stylesheet" href="css/styles.css?v=202610070543">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FFC633'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%2308204F'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="css/styles.css?v=202610070552">
 </head>
 <body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 2 4 14h6.5L9 22l11-13h-7z"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+    </svg>
+
     <div class="login-screen" id="loginScreen" hidden>
         <form class="login-card" id="loginForm">
-            <h1>⚡ Fast Check INNEXA</h1>
-            <p class="subtitle">Inicia sesión para entrar al workspace.</p>
+            <div class="logo-mark"><svg><use href="#i-bolt"/></svg></div>
+            <h1>Fast Check INNEXA</h1>
+            <p class="lead">Workspace del equipo de verificación.</p>
             <div class="form-group" id="loginEmailGroup">
                 <label class="form-label" for="loginEmail">Correo</label>
                 <input class="form-input" id="loginEmail" type="email" autocomplete="username" required>
@@ -20,43 +33,68 @@
                 <input class="form-input" id="loginPassword" type="password" autocomplete="current-password" required>
             </div>
             <p class="login-error" id="loginError" hidden></p>
-            <button class="btn" type="submit" id="btnLogin">Entrar</button>
+            <button class="btn btn-primary" type="submit" id="btnLogin">Entrar</button>
         </form>
     </div>
 
-    <div class="container" id="appScreen" hidden>
-        <header>
-            <div>
-                <h1>⚡ Fast Check INNEXA — Workspace</h1>
-                <p class="subtitle">Editor colaborativo. Almacenamiento en Supabase + sincronización.</p>
+    <div id="appScreen" hidden>
+        <div class="topbar">
+            <div class="topbar-inner">
+                <div class="brand">
+                    <div class="logo-mark"><svg><use href="#i-bolt"/></svg></div>
+                    <div>
+                        <div class="brand-name">Fast Check</div>
+                        <div class="brand-sub">INNEXA Workspace</div>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <div class="user-chip"><span class="avatar" id="userAvatar"></span><span class="user-name" id="userEmail"></span></div>
+                    <button class="btn btn-ghost" id="btnLogout" title="Salir"><svg><use href="#i-logout"/></svg><span class="btn-logout-label">Salir</span></button>
+                </div>
             </div>
-            <div class="header-actions">
-                <span class="user-email" id="userEmail"></span>
-                <button class="btn secondary" id="btnLogout">Salir</button>
-                <button class="btn" id="btnNewIdea">+ Nueva Idea</button>
-            </div>
-        </header>
+        </div>
 
-        <div class="tabs" id="tabs"></div>
-        <div id="content"></div>
+        <main class="container">
+            <div class="page-head">
+                <div>
+                    <h1>Tablero de verificación</h1>
+                    <p id="summary"></p>
+                </div>
+                <div class="page-head-actions">
+                    <label class="search">
+                        <svg><use href="#i-search"/></svg>
+                        <input type="search" id="search" placeholder="Buscar idea o categoría…" aria-label="Buscar">
+                    </label>
+                    <button class="btn btn-bolt" id="btnNewIdea"><svg><use href="#i-plus"/></svg>Nueva idea</button>
+                </div>
+            </div>
+
+            <nav class="pipeline" id="tabs" aria-label="Etapas"></nav>
+            <div id="content"></div>
+        </main>
     </div>
 
     <div class="modal" id="modal">
-        <div class="modal-content">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
             <div class="modal-header">
-                <h2 class="modal-title" id="modalTitle"></h2>
+                <div>
+                    <div class="modal-eyebrow" id="modalEyebrow"></div>
+                    <h2 class="modal-title" id="modalTitle"></h2>
+                </div>
                 <button class="modal-close" id="btnCloseModal" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body" id="modalBody"></div>
             <div class="modal-footer">
-                <button class="btn secondary" id="btnModalClose">Cerrar</button>
-                <button class="btn" id="btnSaveIdea">Guardar Cambios</button>
+                <button class="btn btn-ghost" id="btnModalClose">Cancelar</button>
+                <button class="btn btn-primary" id="btnSaveIdea">Guardar cambios</button>
             </div>
         </div>
     </div>
 
-    <script src="js/config.js?v=202610070543"></script>
-    <script src="js/supabase.js?v=202610070543"></script>
-    <script src="js/app.js?v=202610070543"></script>
+    <div class="toast-stack" id="toasts"></div>
+
+    <script src="js/config.js?v=202610070552"></script>
+    <script src="js/supabase.js?v=202610070552"></script>
+    <script src="js/app.js?v=202610070552"></script>
 </body>
 </html>
