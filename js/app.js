@@ -2,29 +2,29 @@ const { TABLE, SYNC_INTERVAL_MS, TEAM_EMAIL } = window.APP_CONFIG;
 const CACHE_KEY = 'fast-check-ideas';
 
 const STATUSES = [
-    { id: 'initial', label: 'Ideas Iniciales', color: '#64748b' },
-    { id: 'discussion', label: 'En Discusión', color: '#7c3aed' },
-    { id: 'working', label: 'En Proceso', color: '#2563eb' },
-    { id: 'pending', label: 'Pendiente Publicación', color: '#d97706' },
-    { id: 'published', label: 'Publicadas', color: '#059669' }
+    { id: 'initial', label: 'Ideas Iniciales', color: '#00f0ff' },
+    { id: 'discussion', label: 'En Discusión', color: '#d05cff' },
+    { id: 'working', label: 'En Proceso', color: '#39ff14' },
+    { id: 'pending', label: 'Pendiente Publicación', color: '#ff9900' },
+    { id: 'published', label: 'Publicadas', color: '#00ffcc' }
 ];
 
 const VERDICTS = [
-    { id: 'verdadero', label: 'Verdadero', color: '#059669' },
-    { id: 'falso', label: 'Falso', color: '#dc2626' },
-    { id: 'engañoso', label: 'Engañoso', color: '#ea580c' },
-    { id: 'exagerada', label: 'Exagerada', color: '#d97706' },
-    { id: 'depende', label: 'Depende', color: '#7c3aed' },
-    { id: 'insuficiente', label: 'Evidencia Insuficiente', color: '#64748b' }
+    { id: 'verdadero', label: 'Verdadero', color: '#00ffcc' },
+    { id: 'falso', label: 'Falso', color: '#ff2a6d' },
+    { id: 'engañoso', label: 'Engañoso', color: '#ff9900' },
+    { id: 'exagerada', label: 'Exagerada', color: '#ffd000' },
+    { id: 'depende', label: 'Depende', color: '#d05cff' },
+    { id: 'insuficiente', label: 'Evidencia Insuficiente', color: '#8fa8d8' }
 ];
 
 const PRIORITIES = [
-    { id: 'high', label: 'Alta', color: '#dc2626' },
-    { id: 'medium', label: 'Media', color: '#d97706' },
-    { id: 'low', label: 'Baja', color: '#64748b' }
+    { id: 'high', label: 'Alta', color: '#ff2a6d' },
+    { id: 'medium', label: 'Media', color: '#ff9900' },
+    { id: 'low', label: 'Baja', color: '#39ff14' }
 ];
 
-const FALLBACK_COLOR = '#64748b';
+const FALLBACK_COLOR = '#8fa8d8';
 
 // Busca la opción por id; si el valor no está en la lista (dato antiguo), la
 // crea para mostrarlo tal cual en vez de perderlo.
@@ -202,7 +202,7 @@ function matchesSearch(idea) {
 function renderContent() {
     const filtered = ideas.filter(idea => idea.status === currentTab && matchesSearch(idea));
     let html = filtered.map(idea => `
-        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0">
+        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0" style="--stage:${findOption(STATUSES, idea.status).color};--prio:${findOption(PRIORITIES, idea.priority).color}">
             <button class="card-delete" data-id="${escapeHtml(idea.id)}" aria-label="Eliminar idea" title="Eliminar"><svg><use href="#i-trash"/></svg></button>
             <div class="card-top">
                 <span class="card-id">#${escapeHtml(idea.id)}</span>
@@ -265,7 +265,7 @@ function optionsHtml(list, selected) {
 function pillsHtml(name, list, selected, allowEmpty) {
     const options = selected && !list.some(o => o.id === selected) ? [...list, findOption(list, selected)] : list;
     const empty = allowEmpty
-        ? `<label class="pill" style="--c:#cbd5e1"><input type="radio" name="${name}" value="" ${selected ? '' : 'checked'}><span>Sin definir</span></label>`
+        ? `<label class="pill" style="--c:#8fa8d8"><input type="radio" name="${name}" value="" ${selected ? '' : 'checked'}><span>Sin definir</span></label>`
         : '';
     return `<div class="pills" role="radiogroup">${empty}${options.map(o => `
         <label class="pill" style="--c:${o.color}"><input type="radio" name="${name}" value="${escapeHtml(o.id)}" ${selected === o.id ? 'checked' : ''}><span>${escapeHtml(o.label)}</span></label>

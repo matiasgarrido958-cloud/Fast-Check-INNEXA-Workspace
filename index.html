@@ -3,14 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#070b19">
     <title>Fast Check INNEXA — Workspace</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FFC633'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%2308204F'/%3E%3C/svg%3E">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070b19'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%2300f0ff'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="css/styles.css?v=202610070552">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="css/styles.css?v=202610070608">
 </head>
 <body>
+    <!-- Capa decorativa de fondo: cuadrícula, circuitos y fragmentos de código -->
+    <div class="bg-fx" aria-hidden="true">
+        <div class="bg-grid"></div>
+        <div class="bg-aura a1"></div>
+        <div class="bg-aura a2"></div>
+        <div class="bg-aura a3"></div>
+        <pre class="bg-code c1">const verdict = await verify(claim);
+if (verdict.sources.length &lt; 2) {
+  flag(claim, 'insuficiente');
+}
+// node 0x08204F :: sync ok</pre>
+        <pre class="bg-code c2">SELECT id, status, verdict
+  FROM fast_check_ideas
+ WHERE priority = 'high'
+ ORDER BY last_edited_at DESC;</pre>
+        <pre class="bg-code c3">[FC-INNEXA] &gt; scan --claims
+  ▸ 0x01 parse ............ OK
+  ▸ 0x02 cross-check ...... OK
+  ▸ 0x03 publish .......... PENDING</pre>
+    </div>
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
         <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 2 4 14h6.5L9 22l11-13h-7z"/></symbol>
         <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
@@ -21,6 +43,7 @@
 
     <div class="login-screen" id="loginScreen" hidden>
         <form class="login-card" id="loginForm">
+            <div class="sys-tag">// ACCESO RESTRINGIDO · NODE FC-01</div>
             <div class="logo-mark"><svg><use href="#i-bolt"/></svg></div>
             <h1>Fast Check INNEXA</h1>
             <p class="lead">Workspace del equipo de verificación.</p>
@@ -34,6 +57,7 @@
             </div>
             <p class="login-error" id="loginError" hidden></p>
             <button class="btn btn-primary" type="submit" id="btnLogin">Entrar</button>
+            <div class="sys-tag right">SECURE_LINK · TLS · RLS ON</div>
         </form>
     </div>
 
@@ -57,7 +81,8 @@
         <main class="container">
             <div class="page-head">
                 <div>
-                    <h1>Tablero de verificación</h1>
+                    <div class="sys-tag"><span class="pulse"></span>SYS://FAST-CHECK/WORKSPACE <span class="sys-dim">· LIVE SYNC</span></div>
+                    <h1><span class="bracket">[</span> Tablero de verificación <span class="bracket">]</span></h1>
                     <p id="summary"></p>
                 </div>
                 <div class="page-head-actions">
@@ -72,6 +97,16 @@
             <nav class="pipeline" id="tabs" aria-label="Etapas"></nav>
             <div id="content"></div>
         </main>
+
+        <footer class="sys-footer" aria-hidden="true">
+            <div class="sys-footer-inner">
+                <span>SYS_ID: FC-INNEXA-0x08204F</span>
+                <span class="data-line"></span>
+                <span>SUPABASE::fast_check_ideas</span>
+                <span class="data-line"></span>
+                <span><span class="pulse"></span>SYNC 3000ms</span>
+            </div>
+        </footer>
     </div>
 
     <div class="modal" id="modal">
@@ -93,8 +128,8 @@
 
     <div class="toast-stack" id="toasts"></div>
 
-    <script src="js/config.js?v=202610070552"></script>
-    <script src="js/supabase.js?v=202610070552"></script>
-    <script src="js/app.js?v=202610070552"></script>
+    <script src="js/config.js?v=202610070608"></script>
+    <script src="js/supabase.js?v=202610070608"></script>
+    <script src="js/app.js?v=202610070608"></script>
 </body>
 </html>
