@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="css/styles.css?v=202610070612">
+    <link rel="stylesheet" href="css/styles.css?v=202610070616">
 </head>
 <body>
     <!-- Capa decorativa de fondo: cuadrícula, circuitos y fragmentos de código -->
@@ -44,8 +44,11 @@ if (verdict.sources.length &lt; 2) {
     <div class="login-screen" id="loginScreen" hidden>
         <form class="login-card" id="loginForm">
             <div class="sys-tag">// ACCESO RESTRINGIDO · NODE FC-01</div>
-            <div class="logo-mark"><svg><use href="#i-bolt"/></svg></div>
-            <h1>Fast Check INNEXA</h1>
+            <div class="login-brand">
+                <img class="login-logo" src="assets/innexa-hub-logo-dark.png" alt="INNEXA HUB UDLA" width="547" height="175">
+                <div class="tagline">Innovación <span>·</span> Empresa <span>·</span> Territorio</div>
+            </div>
+            <h1><svg class="h1-bolt"><use href="#i-bolt"/></svg>Fast Check</h1>
             <p class="lead">Workspace del equipo de verificación.</p>
             <div class="form-group" id="loginEmailGroup">
                 <label class="form-label" for="loginEmail">Correo</label>
@@ -65,10 +68,11 @@ if (verdict.sources.length &lt; 2) {
         <div class="topbar">
             <div class="topbar-inner">
                 <div class="brand">
-                    <div class="logo-mark"><svg><use href="#i-bolt"/></svg></div>
+                    <img class="brand-logo" src="assets/innexa-hub-logo-dark.png" alt="INNEXA HUB UDLA" width="547" height="175">
+                    <span class="brand-divider" aria-hidden="true"></span>
                     <div>
-                        <div class="brand-name">Fast Check</div>
-                        <div class="brand-sub">INNEXA Workspace</div>
+                        <div class="brand-name"><svg class="brand-bolt"><use href="#i-bolt"/></svg>Fast Check</div>
+                        <div class="brand-sub">Verification Workspace</div>
                     </div>
                 </div>
                 <div class="topbar-actions">
@@ -128,8 +132,8 @@ if (verdict.sources.length &lt; 2) {
 
     <div class="toast-stack" id="toasts"></div>
 
-    <script src="js/config.js?v=202610070612"></script>
-    <script src="js/supabase.js?v=202610070612"></script>
-    <script src="js/app.js?v=202610070612"></script>
+    <script src="js/config.js?v=202610070616"></script>
+    <script src="js/supabase.js?v=202610070616"></script>
+    <script src="js/app.js?v=202610070616"></script>
 </body>
 </html>
