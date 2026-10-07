@@ -8,7 +8,9 @@ Migrado desde el artifact de Claude a un sitio estático (HTML + CSS + JS, sin d
 
 ```
 index.html            Página principal
-css/styles.css        Estilos
+css/theme-institucional.css  Diseño claro (por defecto)
+css/theme-cyber.css   Diseño oscuro neón (opcional)
+assets/               Logos INNEXA HUB (original, claro y oscuro)
 js/config.js          URL y publishable key de Supabase
 js/supabase.js        Cliente mínimo de la API REST de Supabase
 js/app.js             Lógica del tablero
@@ -17,6 +19,17 @@ supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
 
 Al cambiar CSS o JS, actualiza el número `?v=` de los `<link>`/`<script>` en `index.html`
 para que los navegadores no mezclen archivos nuevos con versiones en caché.
+
+## Diseños
+
+La página trae dos diseños con las mismas clases CSS:
+
+- **Institucional** (`css/theme-institucional.css`): claro y sobrio, el que se ve por defecto.
+- **Cyber** (`css/theme-cyber.css`): oscuro con neones, opcional.
+
+El botón de la barra superior cambia entre ambos y cada navegador recuerda su elección.
+Los colores de etapas, veredictos y prioridades se definen en cada tema con variables `--k-*`.
+Si cambias el diseño o la estructura de la página, revisa ambos archivos.
 
 ## Configurar Supabase
 

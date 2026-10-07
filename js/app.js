@@ -2,29 +2,30 @@ const { TABLE, SYNC_INTERVAL_MS, TEAM_EMAIL } = window.APP_CONFIG;
 const CACHE_KEY = 'fast-check-ideas';
 
 const STATUSES = [
-    { id: 'initial', label: 'Ideas Iniciales', color: '#00f0ff' },
-    { id: 'discussion', label: 'En Discusión', color: '#d05cff' },
-    { id: 'working', label: 'En Proceso', color: '#39ff14' },
-    { id: 'pending', label: 'Pendiente Publicación', color: '#ff8a1f' },
-    { id: 'published', label: 'Publicadas', color: '#00ffcc' }
+    { id: 'initial', label: 'Ideas Iniciales', color: 'var(--k-initial)' },
+    { id: 'discussion', label: 'En Discusión', color: 'var(--k-discussion)' },
+    { id: 'working', label: 'En Proceso', color: 'var(--k-working)' },
+    { id: 'pending', label: 'Pendiente Publicación', color: 'var(--k-pending)' },
+    { id: 'published', label: 'Publicadas', color: 'var(--k-published)' }
 ];
 
 const VERDICTS = [
-    { id: 'verdadero', label: 'Verdadero', color: '#00ffcc' },
-    { id: 'falso', label: 'Falso', color: '#ff2a6d' },
-    { id: 'engañoso', label: 'Engañoso', color: '#ff5a36' },
-    { id: 'exagerada', label: 'Exagerada', color: '#ffa94d' },
-    { id: 'depende', label: 'Depende', color: '#d05cff' },
-    { id: 'insuficiente', label: 'Evidencia Insuficiente', color: '#8fa8d8' }
+    { id: 'verdadero', label: 'Verdadero', color: 'var(--k-verdadero)' },
+    { id: 'falso', label: 'Falso', color: 'var(--k-falso)' },
+    { id: 'engañoso', label: 'Engañoso', color: 'var(--k-enganoso)' },
+    { id: 'exagerada', label: 'Exagerada', color: 'var(--k-exagerada)' },
+    { id: 'depende', label: 'Depende', color: 'var(--k-depende)' },
+    { id: 'insuficiente', label: 'Evidencia Insuficiente', color: 'var(--k-insuficiente)' }
 ];
 
 const PRIORITIES = [
-    { id: 'high', label: 'Alta', color: '#ff2a6d' },
-    { id: 'medium', label: 'Media', color: '#ff8a1f' },
-    { id: 'low', label: 'Baja', color: '#39ff14' }
+    { id: 'high', label: 'Alta', color: 'var(--k-high)' },
+    { id: 'medium', label: 'Media', color: 'var(--k-medium)' },
+    { id: 'low', label: 'Baja', color: 'var(--k-low)' }
 ];
 
-const FALLBACK_COLOR = '#8fa8d8';
+// Los colores reales los define cada tema (css/theme-*.css) en variables --k-*.
+const FALLBACK_COLOR = 'var(--k-neutral)';
 
 // Busca la opción por id; si el valor no está en la lista (dato antiguo), la
 // crea para mostrarlo tal cual en vez de perderlo.
@@ -265,7 +266,7 @@ function optionsHtml(list, selected) {
 function pillsHtml(name, list, selected, allowEmpty) {
     const options = selected && !list.some(o => o.id === selected) ? [...list, findOption(list, selected)] : list;
     const empty = allowEmpty
-        ? `<label class="pill" style="--c:#8fa8d8"><input type="radio" name="${name}" value="" ${selected ? '' : 'checked'}><span>Sin definir</span></label>`
+        ? `<label class="pill" style="--c:var(--k-neutral)"><input type="radio" name="${name}" value="" ${selected ? '' : 'checked'}><span>Sin definir</span></label>`
         : '';
     return `<div class="pills" role="radiogroup">${empty}${options.map(o => `
         <label class="pill" style="--c:${o.color}"><input type="radio" name="${name}" value="${escapeHtml(o.id)}" ${selected === o.id ? 'checked' : ''}><span>${escapeHtml(o.label)}</span></label>
@@ -471,6 +472,28 @@ document.getElementById('btnLogout').addEventListener('click', async () => {
     clearCache();
     showLogin();
 });
+
+// --- Tema visual (institucional por defecto, cyber opcional) ---
+// El tema se aplica antes de cargar la página (script en index.html);
+// aquí solo se cambia y se recuerda en este navegador.
+const THEMES = { institucional: 'Modo Cyber', cyber: 'Modo Institucional' };
+
+function currentTheme() {
+    return document.documentElement.dataset.theme === 'cyber' ? 'cyber' : 'institucional';
+}
+
+function applyTheme(theme) {
+    const link = document.getElementById('themeCss');
+    link.href = link.href.replace(/theme-(institucional|cyber)\.css/, `theme-${theme}.css`);
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem('fast-check-theme', theme); } catch (e) { /* sin storage */ }
+    document.getElementById('themeLabel').textContent = THEMES[theme];
+}
+
+document.getElementById('btnTheme').addEventListener('click', () => {
+    applyTheme(currentTheme() === 'cyber' ? 'institucional' : 'cyber');
+});
+document.getElementById('themeLabel').textContent = THEMES[currentTheme()];
 
 document.getElementById('btnNewIdea').addEventListener('click', createNewIdea);
 document.getElementById('search').addEventListener('input', (e) => {

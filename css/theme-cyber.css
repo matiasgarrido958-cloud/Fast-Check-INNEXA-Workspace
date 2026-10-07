@@ -1,5 +1,6 @@
 /* =========================================================
-   Fast Check INNEXA — Tema "Cyberpunk / Sci-Fi oscuro"
+   Fast Check INNEXA — Tema "Cyber" (oscuro, neón). Opcional.
+   Comparte clases con css/theme-institucional.css
    ========================================================= */
 :root {
     color-scheme: dark;
@@ -30,6 +31,11 @@
     --orange: #ff8a1f;      /* naranjo INNEXA en versión neón */
     --orange-deep: #ff5e00;
     --orange-light: #ffa94d;
+
+    /* Paleta de estados (la usa js/app.js) */
+    --k-initial: #00f0ff; --k-discussion: #d05cff; --k-working: #39ff14; --k-pending: #ff8a1f; --k-published: #00ffcc;
+    --k-verdadero: #00ffcc; --k-falso: #ff2a6d; --k-enganoso: #ff5a36; --k-exagerada: #ffa94d; --k-depende: #d05cff; --k-insuficiente: #8fa8d8;
+    --k-high: #ff2a6d; --k-medium: #ff8a1f; --k-low: #39ff14; --k-neutral: #8fa8d8;
 
     --radius: 14px;
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -67,6 +73,9 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
 .bg-code.c3 { top: 62%; right: 10%; color: rgba(57, 255, 20, 0.08); }
 
 #loginScreen, #appScreen, .modal, .toast-stack { position: relative; z-index: 1; }
+
+/* Elementos exclusivos del tema institucional */
+.logo-light, .inst-footer { display: none !important; }
 
 /* ---------- Ornamentos de sistema ---------- */
 .sys-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); opacity: 0.85; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 8px rgba(0, 240, 255, 0.45); }
@@ -277,7 +286,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
 }
 
 @media (max-width: 720px) {
-    .brand-sub, .user-name, .btn-logout-label { display: none; }
+    .brand-sub, .user-name, .btn-logout-label, .theme-label { display: none; }
     .brand { gap: 10px; }
     .brand-logo { height: 32px; }
     .brand-divider { height: 26px; }
@@ -297,4 +306,8 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
     .modal-content { max-height: 94vh; border-radius: 18px 18px 0 0; }
     .modal-footer { border-radius: 0; }
     .modal-footer .btn { flex: 1; }
+}
+
+@media (max-width: 400px) {
+    .brand-divider, .brand-name { display: none; }
 }
