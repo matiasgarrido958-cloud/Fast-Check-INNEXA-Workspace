@@ -1,6 +1,6 @@
 // Matriz de priorización automática (etapa En Discusión).
-// Gemini evalúa consecuencias, circulación y vigencia (con búsqueda en Google),
-// relevancia, verificabilidad, esfuerzo, potencial comercial y señales de alerta.
+// Gemini evalúa consecuencias, circulación y vigencia, relevancia, verificabilidad,
+// esfuerzo, potencial comercial y señales de alerta.
 // La página aporta respaldos si la IA no está disponible, el ajuste de equilibrio
 // y el aviso de demanda. Configuración en js/lineamientos.js → MATRIX.
 
@@ -182,18 +182,8 @@ async function requestAiEvaluation(idea) {
         : null;
     if (!Object.keys(scores).length) throw new Error('La IA respondió en un formato inesperado.');
     const alerts = String((data && data.alertas) || '').split('|').map(a => a.trim()).filter(Boolean).slice(0, 6).map(a => a.slice(0, 300));
-    const rawSearch = (data && data.search) || {};
-    const search = {
-        status: rawSearch.status === 'ok' ? 'ok' : 'no_disponible',
-        summary: String(rawSearch.summary || '').slice(0, 1500),
-        detail: String(rawSearch.detail || '').slice(0, 300),
-        evidence: (Array.isArray(rawSearch.evidence) ? rawSearch.evidence : [])
-            .filter(e => e && /^https?:\/\//i.test(String(e.url || '')))
-            .slice(0, 6)
-            .map(e => ({ title: String(e.title || e.url).slice(0, 160), url: String(e.url).slice(0, 600) }))
-    };
     return {
-        scores, effort, alerts, search, model: data.model || '', evaluated_at: new Date().toISOString(), input_key: aiInputKey(idea)
+        scores, effort, alerts, model: data.model || '', evaluated_at: new Date().toISOString(), input_key: aiInputKey(idea)
     };
 }
 
@@ -208,14 +198,13 @@ function matrixFor(idea, allIdeas) {
         relevancia: fallbackRelevance(idea),
         consecuencias: { value: 2, reason: 'Valor neutro hasta que la IA evalúe' }
     };
-    const searched = Boolean(ai && ai.search && ai.search.status === 'ok');
 
     const criteria = MATRIX.CRITERIA.map(c => {
         let entry;
         let origin;
         if (ai && ai.scores[c.id]) {
             entry = ai.scores[c.id];
-            origin = c.id === 'circulacion' && searched ? 'ia-web' : 'ia';
+            origin = 'ia';
         } else {
             entry = fallback[c.id] || { value: 2, reason: 'Sin datos' };
             origin = 'respaldo';
@@ -235,14 +224,21 @@ function matrixFor(idea, allIdeas) {
     const weighted = criteria.reduce((sum, c) => sum + c.value * c.weight, 0);
     const base = ((weighted - totalWeight) / (2 * totalWeight)) * 100;
     const score = Math.round(base * effort.factor * balance.factor);
-    const level = score >= MATRIX.THRESHOLDS.high ? 'high' : score >= MATRIX.THRESHOLDS.medium ? 'medium' : 'low';
+    let level = score >= MATRIX.THRESHOLDS.high ? 'high' : score >= MATRIX.THRESHOLDS.medium ? 'medium' : 'low';
+    // No amplificar: lo que casi no circula no puede quedar en Alta.
+    const circulation = criteria.find(c => c.id === 'circulacion');
+    const capped = Boolean(circulation && circulation.value === 1 && level === 'high');
+    if (capped) level = MATRIX.LOW_CIRCULATION_MAX_LEVEL;
     const commercial = ai && ai.scores.comercial ? ai.scores.comercial : null;
+    // Apoyo al filtro "Es verificable" (no suma al puntaje).
+    const verifiability = ai && ai.scores.verificabilidad
+        ? { ...ai.scores.verificabilidad, origin: 'ia' }
+        : { ...fallback.verificabilidad, origin: 'respaldo' };
 
     return {
-        criteria, effort, balance, base: Math.round(base), score, level, commercial, aiStatus,
+        criteria, effort, balance, base: Math.round(base), score, level, capped, commercial, verifiability, aiStatus,
         model: ai ? ai.model : '',
         alerts: ai && Array.isArray(ai.alerts) ? ai.alerts : [],
-        search: ai && ai.search ? ai.search : null,
         demand: demandSignal(idea, allIdeas)
     };
 }

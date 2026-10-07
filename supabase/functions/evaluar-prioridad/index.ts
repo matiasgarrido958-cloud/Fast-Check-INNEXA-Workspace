@@ -4,11 +4,6 @@
 //   GEMINI_API_KEY  (obligatorio) clave de Google AI Studio
 //   GEMINI_MODEL    (opcional)    modelo a usar; por defecto el Flash vigente
 //
-// Funciona en dos pasos:
-//   1. Búsqueda: Gemini busca en Google dónde circula la afirmación y si sigue vigente.
-//   2. Evaluación: con esos hallazgos, Gemini puntúa cada criterio en JSON.
-// Si la búsqueda no está disponible (cuota, modelo), la evaluación se hace igual sin ella.
-//
 // Solo responde a usuarios con sesión iniciada en el workspace: la página envía
 // su token y aquí se valida contra Supabase Auth. La clave de Gemini nunca sale
 // de este servidor.
@@ -23,7 +18,6 @@ const CORS_HEADERS = {
 const DEFAULT_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
 // Respuestas de Gemini que justifican probar otro modelo.
 const RETRY_WITH_NEXT_MODEL = new Set([404, 429, 500, 503]);
-const MAX_EVIDENCE = 6;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -62,9 +56,6 @@ const RESPONSE_SCHEMA = {
     required: ['verificabilidad', 'relevancia', 'consecuencias', 'circulacion', 'esfuerzo', 'comercial', 'alertas']
 };
 
-type Evidence = { title: string; url: string };
-type SearchResult = { status: 'ok' | 'no_disponible'; summary: string; evidence: Evidence[]; detail?: string };
-
 function json(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 }
@@ -87,22 +78,7 @@ function describeIdea(idea: Record<string, unknown>): string {
 ${sources || '  - (sin fuentes)'}`;
 }
 
-function buildSearchPrompt(idea: Record<string, unknown>, today: string): string {
-    return `Hoy es ${clip(today, 10)}. Investiga en la web la circulación de esta afirmación (o de su cifra central):
-
-${describeIdea(idea)}
-
-Responde en español, en texto breve (máximo 120 palabras), con:
-1. Dónde aparece: tipo de medios o redes y si son de alcance nacional, de nicho o marginales.
-2. Vigencia: fecha de la mención más reciente que encuentres y si se sigue citando o compartiendo.
-3. Origen: la fuente original de la cifra o afirmación, si la identificas, y si coincide con lo que se afirma.
-No juzgues si es verdadera; solo describe su circulación y origen.`;
-}
-
-function buildPrompt(idea: Record<string, unknown>, today: string, search: SearchResult): string {
-    const searchBlock = search.status === 'ok'
-        ? `Hallazgos de una búsqueda web reciente sobre su circulación:\n${clip(search.summary, 1500)}\n${search.evidence.map(e => `  - ${clip(e.title, 120)}`).join('\n')}`
-        : 'No hubo búsqueda web disponible: evalúa la circulación solo con los enlaces entregados y dilo en el motivo.';
+function buildPrompt(idea: Record<string, unknown>, today: string): string {
     return `Eres parte del equipo editorial de "Fast Check INNEXA", un proyecto de INNEXA HUB (Universidad de Las Américas, Chile)
 que verifica afirmaciones, mitos y rumores sobre innovación, inteligencia artificial, tecnología y startups, con foco en Chile,
 y publica en Instagram. El equipo son 3 estudiantes.
@@ -126,9 +102,12 @@ Criterios (1 a 3):
 - consecuencias (si la gente la cree): 3 = puede llevar a decisiones con costo real (dinero, inversión, empleo, carrera,
   políticas públicas, seguridad); 2 = distorsiona la comprensión del tema y puede llevar a malas decisiones menores;
   1 = anecdótico, con poco efecto práctico.
-- circulacion (alcance y vigencia): 3 = circula ampliamente (medios nacionales o viral en redes) y se sigue citando en los
-  últimos meses; 2 = circulación moderada o de nicho, o amplia pero antigua; 1 = marginal, sin menciones recientes.
-  Varios sitios pequeños que replican lo mismo NO equivalen a circulación amplia.
+  El daño solo ocurre si suficiente gente la ve y la cree: si circula poco o es antigua, NO uses 3, salvo que el riesgo
+  sea grave aunque la vea poca gente (salud, seguridad, fraude).
+- circulacion (alcance y vigencia), juzgada por los enlaces, el emisor, la fecha y tu conocimiento general:
+  3 = circula ampliamente (medios nacionales, figura pública o viral en redes) y es reciente o se sigue citando;
+  2 = circulación moderada o de nicho, o amplia pero antigua; 1 = marginal, sin señales de difusión ni vigencia.
+  Varios sitios pequeños que replican lo mismo NO equivalen a circulación amplia. No inventes cifras de difusión.
 - esfuerzo (para verificarla este equipo): bajo = menos de 2 horas, hay datos oficiales fáciles de encontrar;
   medio = cerca de 1 día, requiere varias fuentes o cálculos; alto = más de 3 días, requiere estudios especializados,
   expertos o datos no públicos.
@@ -138,9 +117,7 @@ Criterios (1 a 3):
   datos desactualizados, fuente original distinta de lo que se afirma, fecha dudosa). Texto vacío si no hay.
 
 Afirmación a evaluar:
-${describeIdea(idea)}
-
-${searchBlock}`;
+${describeIdea(idea)}`;
 }
 
 async function isAuthenticated(req: Request): Promise<boolean> {
@@ -186,33 +163,6 @@ function textOf(data: any): string {
     return data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
 }
 
-// Paso 1: búsqueda en Google. Nunca hace fallar la evaluación.
-async function searchCirculation(apiKey: string, models: string[], idea: Record<string, unknown>, today: string): Promise<SearchResult> {
-    try {
-        const result = await callWithFallback(apiKey, models, {
-            contents: [{ role: 'user', parts: [{ text: buildSearchPrompt(idea, today) }] }],
-            tools: [{ google_search: {} }],
-            generationConfig: { temperature: 0.2 }
-        });
-        if (!result.ok) return { status: 'no_disponible', summary: '', evidence: [], detail: result.error };
-        const summary = textOf(result.data).trim();
-        const chunks = result.data?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        const seen = new Set<string>();
-        const evidence: Evidence[] = [];
-        for (const chunk of chunks) {
-            const web = chunk?.web;
-            if (!web?.uri || seen.has(web.uri)) continue;
-            seen.add(web.uri);
-            evidence.push({ title: clip(web.title || web.uri, 160), url: clip(web.uri, 600) });
-            if (evidence.length >= MAX_EVIDENCE) break;
-        }
-        if (!summary) return { status: 'no_disponible', summary: '', evidence: [], detail: 'La búsqueda no devolvió resultados' };
-        return { status: 'ok', summary: clip(summary, 1500), evidence };
-    } catch (error) {
-        return { status: 'no_disponible', summary: '', evidence: [], detail: error instanceof Error ? error.message : String(error) };
-    }
-}
-
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
     if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405);
@@ -231,10 +181,8 @@ Deno.serve(async (req: Request) => {
         const configured = Deno.env.get('GEMINI_MODEL');
         const models = configured ? [configured, ...DEFAULT_MODELS.filter(m => m !== configured)] : DEFAULT_MODELS;
 
-        const search = await searchCirculation(apiKey, models, idea, today);
-
         const result = await callWithFallback(apiKey, models, {
-            contents: [{ role: 'user', parts: [{ text: buildPrompt(idea, today, search) }] }],
+            contents: [{ role: 'user', parts: [{ text: buildPrompt(idea, today) }] }],
             generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA }
         });
         if (!result.ok) return json({ error: result.error }, result.status);
@@ -245,11 +193,7 @@ Deno.serve(async (req: Request) => {
         } catch {
             return json({ error: 'Gemini no devolvió un JSON válido' }, 502);
         }
-        return json({
-            ...parsed,
-            model: result.model,
-            search: { status: search.status, summary: search.summary, evidence: search.evidence, detail: search.detail || '' }
-        });
+        return json({ ...parsed, model: result.model });
     } catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, 500);
     }

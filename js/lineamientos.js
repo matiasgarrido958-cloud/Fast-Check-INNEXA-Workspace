@@ -42,21 +42,22 @@ window.LINEAMIENTOS = {
         CRITERIA: [
             { id: 'consecuencias', label: 'Consecuencias si se cree', short: 'Consecuencias', weight: 3, source: 'ia',
                 hint: 'Decisiones de emprendedores, inversión, empleo o políticas públicas que podría afectar.' },
-            { id: 'circulacion', label: 'Circulación y vigencia', short: 'Circulación', weight: 2, source: 'ia',
-                hint: 'La IA busca en Google dónde circula y si se sigue citando. Sin búsqueda: plataformas y fecha.' },
-            { id: 'relevancia', label: 'Relevancia (tema y emisor)', short: 'Relevancia', weight: 2, source: 'ia',
-                hint: 'Importancia para la innovación y tecnología en Chile; peso de quien lo dice.' },
-            { id: 'verificabilidad', label: 'Verificabilidad', weight: 1, source: 'ia',
-                hint: 'Hecho concreto y comprobable (cifra, dato) vs. opinión o predicción.' }
+            { id: 'circulacion', label: 'Circulación y vigencia', short: 'Circulación', weight: 3, source: 'ia',
+                hint: 'Alcance y vigencia según enlaces, emisor y fecha. Sin IA: plataformas y fecha.' },
+            { id: 'relevancia', label: 'Relevancia (tema y emisor)', short: 'Relevancia', weight: 1, source: 'ia',
+                hint: 'Importancia para la innovación y tecnología en Chile; peso de quien lo dice.' }
         ],
+        // La IA también evalúa la verificabilidad, pero no suma: ya es un filtro que marca el equipo.
         // El esfuerzo (lo estima la IA) multiplica el puntaje.
         EFFORT: [
             { id: 'bajo', label: 'Bajo (menos de 2 horas)', factor: 1 },
-            { id: 'medio', label: 'Medio (cerca de 1 día)', factor: 0.85 },
-            { id: 'alto', label: 'Alto (más de 3 días)', factor: 0.7 }
+            { id: 'medio', label: 'Medio (cerca de 1 día)', factor: 0.9 },
+            { id: 'alto', label: 'Alto (más de 3 días)', factor: 0.75 }
         ],
         // Cortes sobre 100.
         THRESHOLDS: { high: 60, medium: 35 },
+        // "No amplificar" (Maldita.es): si la circulación es 1, la prioridad máxima es Media.
+        LOW_CIRCULATION_MAX_LEVEL: 'medium',
         // Respaldo de circulación: días máximos para considerar la afirmación reciente.
         RECENCY_DAYS: { three: 7, two: 30 },
         // Equilibrio: si el mismo autor/medio ya tiene esta cantidad de ideas activas

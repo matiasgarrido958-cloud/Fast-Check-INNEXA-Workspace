@@ -46,22 +46,26 @@ Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsa
 
 ## Matriz de priorización
 
-En **En Discusión** la prioridad se calcula sola (0–100 → Alta, Media o Baja). Gemini evalúa:
+En **En Discusión** la prioridad se calcula sola (0–100 → Alta ≥ 60, Media ≥ 35, Baja). Gemini evalúa:
 
 | Criterio | Peso |
 |---|---|
-| Consecuencias si se cree | ×3 |
-| Circulación y vigencia (con búsqueda en Google) | ×2 |
-| Relevancia (tema y emisor) | ×2 |
-| Verificabilidad | ×1 |
+| Consecuencias si se cree (considerando cuánta gente la ve) | ×3 |
+| Circulación y vigencia | ×3 |
+| Relevancia (tema y emisor) | ×1 |
 
-El esfuerzo estimado multiplica el puntaje y hay un ajuste de equilibrio si el mismo autor concentra
-varias ideas. Gemini también entrega **señales de alerta** (cifras imposibles, datos desactualizados…),
-que se muestran en la matriz y en la etapa de investigación, y las fuentes que encontró al buscar.
-El potencial comercial y la demanda (ideas parecidas) se muestran pero no puntúan.
-Si la IA o la búsqueda no están disponibles se usan respaldos automáticos y la página lo indica.
-El equipo puede cambiar la prioridad final escribiendo el motivo.
-Pesos, cortes y palabras clave: `js/lineamientos.js` → `MATRIX`.
+Siguen el modelo de daño de Full Fact / Cunliffe-Jones (el daño requiere que suficiente gente la crea) y
+el criterio viralidad × peligrosidad de Maldita.es. Reglas adicionales:
+
+- **No amplificar:** si la circulación es 1, la prioridad máxima es Media.
+- **Esfuerzo** (bajo ×1, medio ×0,9, alto ×0,75) y **equilibrio** (mismo autor repetido ×0,9) ajustan el puntaje.
+- **Verificabilidad**, **potencial comercial** y **demanda** se muestran pero no suman
+  (la verificabilidad ya es un filtro que marca el equipo).
+- **Señales de alerta:** la IA marca cifras imposibles, datos desactualizados o fuentes que no calzan;
+  se muestran en la matriz y en la etapa de investigación.
+
+Sin IA disponible se usan respaldos automáticos y la página lo indica. El equipo puede cambiar la
+prioridad final escribiendo el motivo. Pesos, cortes y reglas: `js/lineamientos.js` → `MATRIX`.
 
 ### Activar la evaluación con IA (Gemini)
 
