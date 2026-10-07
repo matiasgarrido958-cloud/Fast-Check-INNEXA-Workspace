@@ -38,7 +38,13 @@ python3 -m http.server 8000
 3. En un par de minutos el sitio queda en `https://<usuario>.github.io/Fast-Check-INNEXA-Workspace/`.
    Cada push a `main` lo actualiza.
 
-## Seguridad
+## Inicio de sesión
 
-La app no tiene login, así que cualquiera con el enlace puede leer, crear, editar y borrar ideas.
-Para restringirlo, activa Supabase Auth y cambia las políticas de `schema.sql` de `anon` a `authenticated`.
+Solo pueden entrar las cuentas creadas en Supabase (no hay registro público):
+
+1. **Authentication → Sign In / Providers → Email**: desactiva *Allow new users to sign up*.
+2. **Authentication → Users → Add user → Create new user**: correo + contraseña, con *Auto Confirm User* marcado.
+3. Las políticas RLS de `schema.sql` solo permiten leer y escribir a usuarios autenticados,
+   así que sin sesión la API no entrega ninguna idea aunque alguien tenga la publishable key.
+
+Para quitarle el acceso a alguien, bórralo en **Authentication → Users**.

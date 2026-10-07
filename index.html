@@ -7,13 +7,34 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="container">
+    <div class="login-screen" id="loginScreen" hidden>
+        <form class="login-card" id="loginForm">
+            <h1>⚡ Fast Check INNEXA</h1>
+            <p class="subtitle">Inicia sesión para entrar al workspace.</p>
+            <div class="form-group">
+                <label class="form-label" for="loginEmail">Correo</label>
+                <input class="form-input" id="loginEmail" type="email" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="loginPassword">Contraseña</label>
+                <input class="form-input" id="loginPassword" type="password" autocomplete="current-password" required>
+            </div>
+            <p class="login-error" id="loginError" hidden></p>
+            <button class="btn" type="submit" id="btnLogin">Entrar</button>
+        </form>
+    </div>
+
+    <div class="container" id="appScreen" hidden>
         <header>
             <div>
                 <h1>⚡ Fast Check INNEXA — Workspace</h1>
                 <p class="subtitle">Editor colaborativo. Almacenamiento en Supabase + sincronización.</p>
             </div>
-            <button class="btn" id="btnNewIdea">+ Nueva Idea</button>
+            <div class="header-actions">
+                <span class="user-email" id="userEmail"></span>
+                <button class="btn secondary" id="btnLogout">Salir</button>
+                <button class="btn" id="btnNewIdea">+ Nueva Idea</button>
+            </div>
         </header>
 
         <div class="tabs" id="tabs"></div>

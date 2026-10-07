@@ -37,9 +37,8 @@ alter table public.fast_check_ideas
     add column if not exists last_edited_by text        default 'Usuario',
     add column if not exists last_edited_at timestamptz default now();
 
--- Row Level Security.
--- La app no tiene login: cualquiera con la publishable key puede leer y escribir.
--- Si más adelante agregas Supabase Auth, cambia "to anon" por "to authenticated".
+-- Row Level Security: solo usuarios con sesión iniciada (Supabase Auth)
+-- pueden leer y escribir. Sin sesión, la API no devuelve nada.
 alter table public.fast_check_ideas enable row level security;
 
 drop policy if exists "fast_check_ideas_select" on public.fast_check_ideas;
@@ -47,10 +46,10 @@ drop policy if exists "fast_check_ideas_insert" on public.fast_check_ideas;
 drop policy if exists "fast_check_ideas_update" on public.fast_check_ideas;
 drop policy if exists "fast_check_ideas_delete" on public.fast_check_ideas;
 
-create policy "fast_check_ideas_select" on public.fast_check_ideas for select to anon using (true);
-create policy "fast_check_ideas_insert" on public.fast_check_ideas for insert to anon with check (true);
-create policy "fast_check_ideas_update" on public.fast_check_ideas for update to anon using (true) with check (true);
-create policy "fast_check_ideas_delete" on public.fast_check_ideas for delete to anon using (true);
+create policy "fast_check_ideas_select" on public.fast_check_ideas for select to authenticated using (true);
+create policy "fast_check_ideas_insert" on public.fast_check_ideas for insert to authenticated with check (true);
+create policy "fast_check_ideas_update" on public.fast_check_ideas for update to authenticated using (true) with check (true);
+create policy "fast_check_ideas_delete" on public.fast_check_ideas for delete to authenticated using (true);
 
 -- Avisa a la API de Supabase que recargue la estructura de las tablas.
 notify pgrst, 'reload schema';

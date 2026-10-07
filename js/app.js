@@ -73,6 +73,10 @@ function saveCache() {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(ideas)); } catch (e) { /* sin storage */ }
 }
 
+function clearCache() {
+    try { localStorage.removeItem(CACHE_KEY); } catch (e) { /* sin storage */ }
+}
+
 function readCache() {
     try {
         const stored = localStorage.getItem(CACHE_KEY);
@@ -98,6 +102,7 @@ async function loadIdeas() {
         saveCache();
     } catch (error) {
         connected = false;
+        if (handleAuthError(error)) return;
         console.error('Error loading from Supabase:', error);
         showToast(`⚠️ Error conectando a Supabase, usando cache local. Detalle: ${error.message}`, 'warning', 15000);
         ideas = readCache() || INITIAL_IDEAS.map(([id, title, category, priority]) => blankIdea(id, title, category, priority, 'Sistema'));
@@ -119,6 +124,7 @@ setInterval(async () => {
             showToast('🔄 Sincronizado desde Supabase', 'success');
         }
     } catch (error) {
+        if (handleAuthError(error)) return;
         console.error('Sync error:', error);
     }
 }, SYNC_INTERVAL_MS);
@@ -177,12 +183,13 @@ function renderContent() {
 
 async function createNewIdea() {
     const maxId = Math.max(0, ...ideas.map(i => parseInt(i.id, 10) || 0));
-    const newIdea = blankIdea(String(maxId + 1).padStart(3, '0'));
+    const newIdea = blankIdea(String(maxId + 1).padStart(3, '0'), '', '', 'medium', currentUserEmail());
     ideas.push(newIdea);
 
     try {
         await supabaseCall('POST', TABLE, newIdea);
     } catch (error) {
+        if (handleAuthError(error)) return;
         console.error('Error creating:', error);
         showToast('⚠️ Error en Supabase, idea guardada localmente', 'warning');
     }
@@ -268,9 +275,10 @@ async function deleteIdea(id) {
         showToast(`✓ Idea "${removed.title || 'sin título'}" eliminada`, 'success');
         saveCache();
     } catch (error) {
+        ideas.splice(index, 0, removed);
+        if (handleAuthError(error)) return;
         console.error('Error deleting:', error);
         showToast('✗ Error al eliminar en Supabase', 'error');
-        ideas.splice(index, 0, removed);
     }
     render();
 }
@@ -283,7 +291,7 @@ async function saveIdea() {
     for (const field of ['title', 'category', 'priority', 'gancho', 'source', 'verdict', 'analysis', 'status', 'errorNotes']) {
         idea[field] = document.getElementById(field).value;
     }
-    idea.last_edited_by = 'Usuario';
+    idea.last_edited_by = currentUserEmail();
     idea.last_edited_at = new Date().toISOString();
     saveCache();
 
@@ -291,6 +299,7 @@ async function saveIdea() {
         await supabaseCall('PATCH', `${TABLE}?id=eq.${encodeURIComponent(idea.id)}`, idea);
         showToast('✓ Cambios guardados en Supabase', 'success');
     } catch (error) {
+        if (handleAuthError(error)) return;
         console.error('Error saving:', error);
         showToast('✗ Error al guardar en Supabase (guardado localmente)', 'error');
     }
@@ -300,9 +309,69 @@ async function saveIdea() {
     render();
 }
 
+// --- Sesión ---
+
+function showLogin(message = '') {
+    connected = false;
+    ideas = [];
+    currentEditingId = null;
+    hasUnsavedChanges = false;
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('appScreen').hidden = true;
+    document.getElementById('loginScreen').hidden = false;
+    const errorBox = document.getElementById('loginError');
+    errorBox.textContent = message;
+    errorBox.hidden = !message;
+    document.getElementById('loginEmail').focus();
+}
+
+function showApp() {
+    document.getElementById('loginScreen').hidden = true;
+    document.getElementById('appScreen').hidden = false;
+    document.getElementById('userEmail').textContent = currentUserEmail() || '';
+    loadIdeas();
+}
+
+// Si la sesión expiró o fue revocada, vuelve al login. Devuelve true si lo manejó.
+function handleAuthError(error) {
+    if (!(error instanceof AuthError)) return false;
+    clearCache();
+    showLogin('Tu sesión expiró. Vuelve a iniciar sesión.');
+    return true;
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = document.getElementById('btnLogin');
+    const errorBox = document.getElementById('loginError');
+    button.disabled = true;
+    errorBox.hidden = true;
+    try {
+        await signIn(document.getElementById('loginEmail').value.trim(), document.getElementById('loginPassword').value);
+        document.getElementById('loginPassword').value = '';
+        showApp();
+    } catch (error) {
+        console.error('Login error:', error);
+        errorBox.textContent = error instanceof AuthError && error.status === 400
+            ? 'Correo o contraseña incorrectos.'
+            : `No se pudo iniciar sesión: ${error.message}`;
+        errorBox.hidden = false;
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById('btnLogout').addEventListener('click', async () => {
+    if (hasUnsavedChanges && !confirm('¿Descartar cambios sin guardar?')) return;
+    await signOut();
+    clearCache();
+    showLogin();
+});
+
 document.getElementById('btnNewIdea').addEventListener('click', createNewIdea);
 document.getElementById('btnSaveIdea').addEventListener('click', saveIdea);
 document.getElementById('btnCloseModal').addEventListener('click', closeModal);
 document.getElementById('btnModalClose').addEventListener('click', closeModal);
 
-loadIdeas();
+if (currentUserEmail()) showApp();
+else showLogin();
