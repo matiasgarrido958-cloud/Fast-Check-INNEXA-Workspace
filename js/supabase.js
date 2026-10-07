@@ -15,8 +15,13 @@ async function supabaseCall(method, endpoint, body = null) {
 
     const response = await fetch(url, options);
     if (!response.ok) {
-        const detail = await response.text().catch(() => '');
-        const error = new Error(`HTTP ${response.status} ${detail}`);
+        const text = await response.text().catch(() => '');
+        let detail = text;
+        try {
+            const json = JSON.parse(text);
+            detail = [json.message, json.hint].filter(Boolean).join(' — ') || text;
+        } catch (e) { /* respuesta no JSON */ }
+        const error = new Error(`HTTP ${response.status}: ${detail}`);
         console.error('Supabase error:', error);
         throw error;
     }

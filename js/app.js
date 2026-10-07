@@ -51,12 +51,12 @@ let currentEditingId = null;
 let hasUnsavedChanges = false;
 let currentTab = 'initial';
 
-function showToast(msg, type = 'success') {
+function showToast(msg, type = 'success', durationMs = 3000) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = msg;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => toast.remove(), durationMs);
 }
 
 function escapeHtml(text) {
@@ -94,7 +94,7 @@ async function loadIdeas() {
         saveCache();
     } catch (error) {
         console.error('Error loading from Supabase:', error);
-        showToast('⚠️ Error conectando a Supabase, usando cache local', 'warning');
+        showToast(`⚠️ Error conectando a Supabase, usando cache local. Detalle: ${error.message}`, 'warning', 15000);
         ideas = readCache() || INITIAL_IDEAS.map(([id, title, category, priority]) => blankIdea(id, title, category, priority, 'Sistema'));
         saveCache();
     }
