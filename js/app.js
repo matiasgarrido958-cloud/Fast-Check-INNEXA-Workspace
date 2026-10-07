@@ -586,14 +586,16 @@ const AI_STATUS_TEXT = {
 
 const SCORE_WORDS = { 1: 'Bajo', 2: 'Medio', 3: 'Alto' };
 
-// Cuadro secundario de la matriz, con la misma estructura que las tarjetas de criterios.
-function extraBox(label, value, note, origin, extraClass = '') {
-    return `<div class="mx-extra ${extraClass}">
-        <div class="mx-tile-top"><span class="mx-extra-label">${escapeHtml(label)}</span></div>
-        <strong class="mx-extra-value">${value}</strong>
-        <div class="mx-tile-foot"><span class="mx-extra-note">${escapeHtml(note)}</span>${origin ? `<span class="mx-origin ${origin}">${ORIGIN_LABELS[origin]}</span>` : ''}</div>
+// Cuadro secundario de la matriz: mismo formato que las tarjetas de criterios.
+// `corner` reemplaza al peso (×3) de las tarjetas; `big` es el valor grande.
+function extraBox(label, corner, big, word, origin) {
+    return `<div class="mx-tile">
+        <div class="mx-tile-top"><span class="mx-name">${escapeHtml(label)}</span><span class="mx-weight">${escapeHtml(corner)}</span></div>
+        <span class="mx-score">${big}</span>
+        <div class="mx-tile-foot"><span class="mx-word">${escapeHtml(word)}</span>${origin ? `<span class="mx-origin ${origin}">${ORIGIN_LABELS[origin]}</span>` : ''}</div>
     </div>`;
 }
+
 
 function scorePill(value) {
     return `<span class="mx-score s${value}"><b>${value}</b>/3</span>`;
@@ -633,12 +635,12 @@ function matrixHtml(draft) {
         <div class="matrix-bar"><span style="width:${Math.max(2, Math.min(100, m.score))}%;--c:${level.color}"></span></div>
         ${alertsBox}
         <div class="mx-grid">${tiles}</div>
-        <div class="mx-extras">
-            ${extraBox('Esfuerzo', escapeHtml(m.effort.label.split(' (')[0]), `ajusta el puntaje ×${m.effort.factor}`, m.effort.origin)}
-            ${extraBox('Verificabilidad', `${SCORE_WORDS[m.verifiability.value]} (${m.verifiability.value}/3)`, 'apoya el filtro · no suma', m.verifiability.origin)}
-            ${extraBox('Potencial comercial', m.commercial ? `${SCORE_WORDS[m.commercial.value]} (${m.commercial.value}/3)` : '—', 'no suma al puntaje', m.commercial ? 'ia' : '')}
-            ${m.balance.factor < 1 ? extraBox('Equilibrio', `×${m.balance.factor}`, 'mismo autor repetido', '', 'warn') : ''}
-            ${m.demand.count > 1 ? extraBox('Demanda', `🔁 ${m.demand.count} veces`, 'ideas parecidas · no suma', '') : ''}
+        <div class="mx-grid">
+            ${extraBox('Esfuerzo', `×${m.effort.factor}`, `<b>${escapeHtml(m.effort.label.split(' (')[0])}</b>`, 'ajusta el puntaje', m.effort.origin)}
+            ${extraBox('Verificabilidad', 'no suma', `<b>${m.verifiability.value}</b>/3`, SCORE_WORDS[m.verifiability.value], m.verifiability.origin)}
+            ${extraBox('Comercial', 'no suma', m.commercial ? `<b>${m.commercial.value}</b>/3` : '<b>—</b>', m.commercial ? SCORE_WORDS[m.commercial.value] : 'pendiente', m.commercial ? 'ia' : '')}
+            ${m.balance.factor < 1 ? extraBox('Equilibrio', `×${m.balance.factor}`, `<b>×${m.balance.factor}</b>`, 'mismo autor repetido', '') : ''}
+            ${m.demand.count > 1 ? extraBox('Demanda', 'no suma', `<b>${m.demand.count}</b> veces`, 'ideas parecidas', '') : ''}
         </div>
         <details class="mx-why">
             <summary>Ver por qué de cada puntaje</summary>

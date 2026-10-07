@@ -348,4 +348,6 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
     .mx-tile .mx-tile-foot, .mx-extra .mx-tile-foot { justify-content: flex-end; }
     .mx-extra .mx-extra-note { display: none; }
     .mx-score b { font-size: 22px; }
+    .mx-tile .mx-word { display: none; }
+    .mx-tile .mx-name { white-space: nowrap; overflow-wrap: normal; }
 }
