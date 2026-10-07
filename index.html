@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Check INNEXA — Workspace</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>⚡ Fast Check INNEXA — Workspace</h1>
+                <p class="subtitle">Editor colaborativo. Almacenamiento en Supabase + sincronización.</p>
+            </div>
+            <button class="btn" id="btnNewIdea">+ Nueva Idea</button>
+        </header>
+
+        <div class="tabs" id="tabs"></div>
+        <div id="content"></div>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle"></h2>
+                <button class="modal-close" id="btnCloseModal" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button class="btn secondary" id="btnModalClose">Cerrar</button>
+                <button class="btn" id="btnSaveIdea">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
