@@ -15,6 +15,9 @@ js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
 ```
 
+Al cambiar CSS o JS, actualiza el número `?v=` de los `<link>`/`<script>` en `index.html`
+para que los navegadores no mezclen archivos nuevos con versiones en caché.
+
 ## Configurar Supabase
 
 1. En tu proyecto de Supabase abre **SQL Editor** y ejecuta `supabase/schema.sql`
