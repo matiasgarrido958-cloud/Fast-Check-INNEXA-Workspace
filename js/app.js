@@ -586,6 +586,15 @@ const AI_STATUS_TEXT = {
 
 const SCORE_WORDS = { 1: 'Bajo', 2: 'Medio', 3: 'Alto' };
 
+// Cuadro secundario de la matriz, con la misma estructura que las tarjetas de criterios.
+function extraBox(label, value, note, origin, extraClass = '') {
+    return `<div class="mx-extra ${extraClass}">
+        <div class="mx-tile-top"><span class="mx-extra-label">${escapeHtml(label)}</span></div>
+        <strong class="mx-extra-value">${value}</strong>
+        <div class="mx-tile-foot"><span class="mx-extra-note">${escapeHtml(note)}</span>${origin ? `<span class="mx-origin ${origin}">${ORIGIN_LABELS[origin]}</span>` : ''}</div>
+    </div>`;
+}
+
 function scorePill(value) {
     return `<span class="mx-score s${value}"><b>${value}</b>/3</span>`;
 }
@@ -625,11 +634,11 @@ function matrixHtml(draft) {
         ${alertsBox}
         <div class="mx-grid">${tiles}</div>
         <div class="mx-extras">
-            <div class="mx-extra"><span class="mx-extra-label">Esfuerzo</span><strong>${escapeHtml(m.effort.label.split(' (')[0])}</strong><span class="mx-extra-note">ajusta ×${m.effort.factor}</span><span class="mx-origin ${m.effort.origin}">${ORIGIN_LABELS[m.effort.origin]}</span></div>
-            <div class="mx-extra"><span class="mx-extra-label">Verificabilidad</span><strong>${SCORE_WORDS[m.verifiability.value]} (${m.verifiability.value}/3)</strong><span class="mx-extra-note">apoya el filtro · no suma</span><span class="mx-origin ${m.verifiability.origin}">${ORIGIN_LABELS[m.verifiability.origin]}</span></div>
-            <div class="mx-extra"><span class="mx-extra-label">Potencial comercial</span>${m.commercial ? `<strong>${SCORE_WORDS[m.commercial.value]} (${m.commercial.value}/3)</strong>` : '<strong>—</strong>'}<span class="mx-extra-note">no suma al puntaje</span></div>
-            ${m.balance.factor < 1 ? `<div class="mx-extra warn"><span class="mx-extra-label">Equilibrio</span><strong>×${m.balance.factor}</strong><span class="mx-extra-note">mismo autor repetido</span></div>` : ''}
-            ${m.demand.count > 1 ? `<div class="mx-extra"><span class="mx-extra-label">Demanda</span><strong>🔁 ${m.demand.count} veces</strong><span class="mx-extra-note">ideas parecidas · no puntúa</span></div>` : ''}
+            ${extraBox('Esfuerzo', escapeHtml(m.effort.label.split(' (')[0]), `ajusta el puntaje ×${m.effort.factor}`, m.effort.origin)}
+            ${extraBox('Verificabilidad', `${SCORE_WORDS[m.verifiability.value]} (${m.verifiability.value}/3)`, 'apoya el filtro · no suma', m.verifiability.origin)}
+            ${extraBox('Potencial comercial', m.commercial ? `${SCORE_WORDS[m.commercial.value]} (${m.commercial.value}/3)` : '—', 'no suma al puntaje', m.commercial ? 'ia' : '')}
+            ${m.balance.factor < 1 ? extraBox('Equilibrio', `×${m.balance.factor}`, 'mismo autor repetido', '', 'warn') : ''}
+            ${m.demand.count > 1 ? extraBox('Demanda', `🔁 ${m.demand.count} veces`, 'ideas parecidas · no suma', '') : ''}
         </div>
         <details class="mx-why">
             <summary>Ver por qué de cada puntaje</summary>
