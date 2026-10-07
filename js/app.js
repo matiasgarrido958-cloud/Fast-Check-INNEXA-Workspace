@@ -605,10 +605,11 @@ function matrixHtml(draft) {
         : m.search.status === 'ok'
             ? `<span class="mx-search ok">🔎 Búsqueda web: ${m.search.evidence.length} fuente(s)</span>`
             : `<span class="mx-search off" title="${escapeHtml(m.search.detail)}">🔎 Sin búsqueda web: circulación estimada sin buscar</span>`;
-    const evidence = m.search && m.search.status === 'ok'
-        ? `<div class="mx-found"><strong>Lo que encontró la búsqueda:</strong><p>${escapeHtml(m.search.summary)}</p>
-            ${m.search.evidence.length ? `<ul>${m.search.evidence.map(e => `<li><a href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(e.title)}</a></li>`).join('')}</ul>` : ''}</div>`
-        : '';
+    const evidence = !m.search ? ''
+        : m.search.status === 'ok'
+            ? `<div class="mx-found"><strong>Lo que encontró la búsqueda:</strong><p>${escapeHtml(m.search.summary)}</p>
+                ${m.search.evidence.length ? `<ul>${m.search.evidence.map(e => `<li><a href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(e.title)}</a></li>`).join('')}</ul>` : ''}</div>`
+            : `<div class="mx-found"><strong>Por qué no hubo búsqueda web:</strong><p>${escapeHtml(m.search.detail || 'Sin detalle')}</p></div>`;
     const alertsBox = m.alerts.length
         ? `<div class="mx-alerts"><strong>⚠️ Señales de alerta de la IA</strong><ul>${m.alerts.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul></div>`
         : '';
