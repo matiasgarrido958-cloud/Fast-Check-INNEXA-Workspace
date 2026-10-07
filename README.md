@@ -14,9 +14,12 @@ assets/               Logos INNEXA HUB (original, claro y oscuro)
 js/config.js          URL y publishable key de Supabase
 js/lineamientos.js    Checklist, tipos de fuente y motivos de descarte
 js/supabase.js        Cliente mínimo de la API REST de Supabase
+js/prioridad.js       Matriz de priorización automática
 js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
 supabase/migracion-flujo-etapas.sql  Columnas del flujo por etapas
+supabase/migracion-matriz-prioridad.sql  Columnas de la matriz de priorización
+supabase/functions/evaluar-prioridad/    Función que evalúa con Gemini
 ```
 
 Al cambiar CSS o JS, actualiza el número `?v=` de los `<link>`/`<script>` en `index.html`
@@ -40,6 +43,32 @@ Las ideas que no siguen se **descartan** con un motivo (no se borran) y se puede
 Solo desde *Descartadas* se puede eliminar definitivamente.
 
 Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsable y revisor se escriben libremente (la página sugiere los nombres ya usados).
+
+## Matriz de priorización
+
+En **En Discusión** la prioridad se calcula sola (0–100 → Alta, Media o Baja):
+
+| Criterio | Peso | Lo calcula |
+|---|---|---|
+| Consecuencias si se cree | ×3 | Gemini |
+| Circulación (plataformas distintas en los enlaces) | ×2 | La página |
+| Relevancia (tema y emisor) | ×2 | Gemini |
+| Verificabilidad | ×1 | Gemini |
+| Actualidad (días desde la fecha de la afirmación) | ×1 | La página |
+| Demanda (veces que se propuso algo parecido) | ×1 | La página |
+
+El esfuerzo estimado (Gemini) multiplica el puntaje, y hay un ajuste de equilibrio si el mismo autor
+concentra varias ideas. El potencial comercial lo estima Gemini, pero es solo informativo.
+Si la IA no está disponible se usan valores de respaldo y la página lo indica.
+El equipo puede cambiar la prioridad final escribiendo el motivo.
+Pesos, cortes y palabras clave: `js/lineamientos.js` → `MATRIX`.
+
+### Activar la evaluación con IA (Gemini)
+
+1. Crear una API key en Google AI Studio, en un proyecto propio para Fast Check.
+2. Supabase → **Edge Functions → Secrets**: agregar `GEMINI_API_KEY` (y opcionalmente `GEMINI_MODEL`).
+3. Supabase → **Edge Functions → Deploy a new function → Via Editor**, nombre `evaluar-prioridad`,
+   pegar `supabase/functions/evaluar-prioridad/index.ts` y desactivar *Verify JWT* (la función valida la sesión por sí misma).
 
 ## Diseños
 

@@ -44,9 +44,12 @@ function findOption(list, id) {
     return list.find(o => o.id === id) || { id, label: id, color: FALLBACK_COLOR };
 }
 
-// La prioridad la asigna el equipo en En Discusión; antes no aplica.
+// La prioridad sale de la matriz en En Discusión (en vivo); antes no aplica y
+// después queda la que se guardó al avanzar.
 function priorityOf(idea) {
-    return idea.status === 'initial' ? '' : idea.priority;
+    if (idea.status === 'initial') return '';
+    if (idea.status === 'discussion') return effectivePriority(idea, matrixFor(idea, ideas));
+    return idea.priority;
 }
 
 function stageIndex(status) {
@@ -67,7 +70,8 @@ function blankIdea(id, title = '', category = '', priority = '', editedBy = 'Usu
     return {
         id, title, category, priority, gancho: '', source: '', status: 'initial',
         claim_author: '', claim_url: '', claim_date: '', scope: '', question: '', initial_sources: [],
-        in_coverage: false, is_verifiable: false, owner: '', discard_reason: '', discarded_from: '',
+        in_coverage: false, is_verifiable: false, circulates: false, owner: '', discard_reason: '', discarded_from: '',
+        ai_eval: null, priority_score: null, priority_override: '', priority_override_reason: '',
         sources: [], single_source_exception: '', verdict: '', analysis: '', missing_context: '', checklist: {},
         hook: '', key_points: '', design_url: '', reviewed_by: '', approved_by_team: false,
         published_url: '', published_at: '', saves: null, shares: null, corrections: [],
@@ -131,6 +135,7 @@ function requirementsFor(idea, target) {
             if (!idea.title.trim()) missing.push('Escribe la afirmación.');
             if (!idea.category.trim()) missing.push('Indica la categoría.');
             if (!idea.claim_author.trim()) missing.push('Indica quién hizo la afirmación (autor o medio).');
+            if (!idea.claim_date) missing.push('Indica la fecha de la afirmación.');
             const n = filledInitialSources(idea);
             if (n < L.MIN_INITIAL_SOURCES) missing.push(`Agrega al menos ${L.MIN_INITIAL_SOURCES} fuentes iniciales (hay ${n}).`);
             break;
@@ -138,7 +143,8 @@ function requirementsFor(idea, target) {
         case 'working':
             if (!idea.in_coverage) missing.push('Confirma que está dentro de las áreas de cobertura.');
             if (!idea.is_verifiable) missing.push('Confirma que es verificable (no opinión ni especulación).');
-            if (!idea.priority) missing.push('Asigna una prioridad.');
+            if (!idea.circulates) missing.push('Confirma que circula de verdad o tiene un riesgo claro (para no amplificarla).');
+            if (idea.priority_override && !idea.priority_override_reason.trim()) missing.push('Escribe el motivo por el que cambiaron la prioridad de la matriz.');
             if (!idea.owner) missing.push('Asigna un responsable.');
             break;
         case 'pending': {
@@ -186,6 +192,10 @@ let currentEditingId = null;
 let hasUnsavedChanges = false;
 let currentTab = 'initial';
 let searchQuery = '';
+// Ideas que se están evaluando con IA, y las que ya se intentó evaluar solas
+// en esta sesión (para no repetir llamadas si la IA falla).
+const evaluatingIds = new Set();
+const autoEvalTried = new Set();
 // Solo se sincroniza con Supabase si la carga inicial funcionó; si no, el
 // tablero vacío de Supabase reemplazaría las ideas del cache local.
 let connected = false;
@@ -357,20 +367,40 @@ function cardProgress(idea) {
         : `<div class="card-progress ready">✓ Lista para pasar a ${escapeHtml(next.label)}</div>`;
 }
 
+// Puntaje de la matriz para la tarjeta: en Discusión se calcula en vivo; después, el guardado.
+function cardScore(idea) {
+    if (idea.status === 'discussion') return matrixFor(idea, ideas).score;
+    return typeof idea.priority_score === 'number' ? idea.priority_score : null;
+}
+
+function scoreChip(idea) {
+    const score = cardScore(idea);
+    if (score === null || idea.status === 'initial' || idea.status === 'discarded') return '';
+    const ai = aiStatusOf(idea) === 'ok';
+    const manual = idea.priority_override ? ' · cambiada por el equipo' : '';
+    return `<span class="chip outline score" title="Puntaje de la matriz${ai ? ' (evaluado con IA)' : ' (IA pendiente)'}${manual}">⚖ ${score}${ai ? '' : ' · IA pendiente'}${idea.priority_override ? ' · ✎' : ''}</span>`;
+}
+
 function renderContent() {
     const filtered = ideas.filter(idea => idea.status === currentTab && matchesSearch(idea));
+    // En Discusión y En Proceso, primero lo más prioritario según la matriz.
+    if (currentTab === 'discussion' || currentTab === 'working') {
+        const rank = { high: 3, medium: 2, low: 1 };
+        filtered.sort((a, b) => (rank[priorityOf(b)] || 0) - (rank[priorityOf(a)] || 0) || (cardScore(b) ?? -1) - (cardScore(a) ?? -1));
+    }
     let html = filtered.map(idea => `
-        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0" style="--stage:${findOption(ALL_STATUSES, idea.status).color};--prio:${priorityOf(idea) ? findOption(PRIORITIES, idea.priority).color : FALLBACK_COLOR}">
+        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0" style="--stage:${findOption(ALL_STATUSES, idea.status).color};--prio:${priorityOf(idea) ? findOption(PRIORITIES, priorityOf(idea)).color : FALLBACK_COLOR}">
             ${idea.status === 'discarded' ? `<button class="card-delete" data-id="${escapeHtml(idea.id)}" aria-label="Eliminar definitivamente" title="Eliminar definitivamente"><svg><use href="#i-trash"/></svg></button>` : ''}
             <div class="card-top">
                 <span class="card-id">#${escapeHtml(idea.id)}</span>
-                ${priorityOf(idea) ? chip(findOption(PRIORITIES, idea.priority), 'priority') : ''}
+                ${priorityOf(idea) ? chip(findOption(PRIORITIES, priorityOf(idea)), 'priority') : ''}
             </div>
             <div class="card-title ${idea.title ? '' : 'untitled'}">${escapeHtml(idea.title) || 'Sin título'}</div>
             <div class="card-tags">
                 ${idea.verdict ? chip(findOption(VERDICTS, idea.verdict)) : ''}
                 <span class="chip outline">${escapeHtml(idea.category) || 'Sin categoría'}</span>
                 ${idea.owner ? `<span class="chip outline owner">👤 ${escapeHtml(idea.owner)}</span>` : ''}
+                ${scoreChip(idea)}
             </div>
             ${cardProgress(idea)}
             <div class="card-foot">
@@ -546,16 +576,71 @@ function sectionClaim(idea, open) {
     `, stageIndex(idea.status) > 0);
 }
 
+const ORIGIN_LABELS = { auto: 'Auto', ia: 'IA', respaldo: 'Respaldo' };
+const AI_STATUS_TEXT = {
+    ok: 'Evaluado con IA',
+    pendiente: 'IA pendiente: se usan valores de respaldo',
+    desactualizada: 'La afirmación cambió desde la última evaluación con IA',
+    evaluando: 'Evaluando con IA…'
+};
+
+function scoreDots(value) {
+    return `<span class="dots" aria-label="${value} de 3">${[1, 2, 3].map(n => `<span class="dot ${n <= value ? 'on' : ''}"></span>`).join('')}</span>`;
+}
+
+// Tabla de la matriz; se vuelve a dibujar en vivo con el borrador del formulario.
+function matrixHtml(draft) {
+    const m = matrixFor(draft, ideas);
+    const level = findOption(PRIORITIES, m.level);
+    const status = evaluatingIds.has(String(draft.id)) ? 'evaluando' : m.aiStatus;
+    const rows = m.criteria.map(c => `
+        <tr>
+            <td><span class="mx-name">${escapeHtml(c.label)}</span><span class="mx-weight">×${c.weight}</span></td>
+            <td>${scoreDots(c.value)}</td>
+            <td><span class="mx-origin ${c.origin}">${ORIGIN_LABELS[c.origin]}</span></td>
+            <td class="mx-reason">${escapeHtml(c.reason)}</td>
+        </tr>`).join('');
+    return `
+        <div class="matrix-head">
+            <div class="matrix-score" style="--c:${level.color}">
+                <span class="matrix-num">${m.score}</span><span class="matrix-of">/100</span>
+                ${chip(level)}
+            </div>
+            <div class="matrix-meta">
+                <span class="mx-status ${status}">${escapeHtml(AI_STATUS_TEXT[status])}${m.model && status === 'ok' ? ` · ${escapeHtml(m.model)}` : ''}</span>
+                <button type="button" class="btn btn-ghost btn-add" data-action="ai-eval" ${status === 'evaluando' ? 'disabled' : ''}>${m.aiStatus === 'pendiente' ? '✨ Evaluar con IA' : '↻ Reevaluar con IA'}</button>
+            </div>
+        </div>
+        <div class="matrix-bar"><span style="width:${Math.max(2, Math.min(100, m.score))}%;--c:${level.color}"></span></div>
+        <div class="matrix-scroll"><table class="matrix">
+            <thead><tr><th>Criterio</th><th>Puntaje</th><th>Origen</th><th>Por qué</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table></div>
+        <div class="matrix-notes">
+            <div><strong>Esfuerzo:</strong> ${escapeHtml(m.effort.label)} (×${m.effort.factor}) <span class="mx-origin ${m.effort.origin}">${ORIGIN_LABELS[m.effort.origin]}</span> — ${escapeHtml(m.effort.reason)}</div>
+            ${m.balance.factor < 1 ? `<div><strong>Equilibrio:</strong> ×${m.balance.factor} — ${escapeHtml(m.balance.reason)}</div>` : ''}
+            <div class="commercial"><strong>Potencial comercial / institucional</strong> (no suma al puntaje): ${m.commercial ? `${scoreDots(m.commercial.value)} ${escapeHtml(m.commercial.reason)}` : '<em>se calcula con la IA</em>'}</div>
+        </div>`;
+}
+
 function sectionDiscussion(idea, open) {
+    const overrideOptions = [{ id: '', label: 'Usar la prioridad de la matriz' }, ...PRIORITIES.map(p => ({ id: p.id, label: `Cambiar a ${p.label}` }))];
     return fold('2 · Evaluación del equipo', open, `
         <div class="checks">
+            <span class="form-label">Filtros (si alguno no se cumple, se descarta)</span>
             ${checkbox('in_coverage', 'Está dentro de las áreas de cobertura (IA, innovación, tecnología, política que impacta innovación)', idea.in_coverage)}
             ${checkbox('is_verifiable', 'Es verificable: no es opinión ni especulación', idea.is_verifiable)}
+            ${checkbox('circulates', 'Circula de verdad o tiene un riesgo claro (si casi nadie la vio, no se verifica para no amplificarla)', idea.circulates)}
+        </div>
+        <div class="form-group">
+            <span class="form-label">Matriz de priorización <span class="form-hint inline">se calcula sola</span></span>
+            <div class="matrix-box" id="matrixBox">${matrixHtml(idea)}</div>
         </div>
         <div class="row-2">
             <div class="form-group">
-                <span class="form-label">Prioridad</span>
-                ${pillsHtml('priority', PRIORITIES, idea.priority, false)}
+                <label class="form-label" for="priority_override">Prioridad final</label>
+                <select class="form-select" id="priority_override">${optionsHtml(overrideOptions, idea.priority_override || '')}</select>
+                <input class="form-input" id="priority_override_reason" value="${escapeHtml(idea.priority_override_reason)}" placeholder="Motivo del cambio (obligatorio si cambian la prioridad)" ${idea.priority_override ? '' : 'hidden'}>
             </div>
             <div class="form-group">
                 <label class="form-label" for="owner">Responsable</label>
@@ -676,11 +761,11 @@ function readForm(base) {
     const get = id => body.querySelector(`#${id}`);
     for (const key of ['title', 'category', 'claim_author', 'claim_url', 'claim_date', 'scope', 'question', 'gancho',
         'owner', 'single_source_exception', 'analysis', 'missing_context', 'hook', 'key_points', 'design_url',
-        'reviewed_by', 'published_url', 'published_at']) {
+        'reviewed_by', 'published_url', 'published_at', 'priority_override', 'priority_override_reason']) {
         const el = get(key);
         if (el) idea[key] = el.value.trim();
     }
-    for (const key of ['in_coverage', 'is_verifiable', 'approved_by_team']) {
+    for (const key of ['in_coverage', 'is_verifiable', 'circulates', 'approved_by_team']) {
         const el = get(key);
         if (el) idea[key] = el.checked;
     }
@@ -688,7 +773,7 @@ function readForm(base) {
         const el = get(key);
         if (el) idea[key] = el.value === '' ? null : Math.max(0, parseInt(el.value, 10) || 0);
     }
-    for (const key of ['verdict', 'priority']) {
+    for (const key of ['verdict']) {
         const radios = body.querySelectorAll(`input[name="${key}"]`);
         if (radios.length) {
             const checked = body.querySelector(`input[name="${key}"]:checked`);
@@ -751,6 +836,10 @@ function updateRequirements() {
     });
     const hookCount = document.getElementById('hookCount');
     if (hookCount) hookCount.textContent = hookWords(draft.hook);
+    const matrixBox = document.getElementById('matrixBox');
+    if (matrixBox) matrixBox.innerHTML = matrixHtml(draft);
+    const overrideReason = document.getElementById('priority_override_reason');
+    if (overrideReason) overrideReason.hidden = !draft.priority_override;
     const verdictHint = document.getElementById('verdictHint');
     if (verdictHint) verdictHint.textContent = draft.verdict ? findOption(VERDICTS, draft.verdict).hint || '' : 'Elige según la escala oficial.';
 }
@@ -771,6 +860,10 @@ function openModal(id) {
 
     document.getElementById('modal').classList.add('open');
     body.scrollTop = 0;
+    if (idea.status === 'discussion' && aiStatusOf(idea) === 'pendiente' && !autoEvalTried.has(String(idea.id))) {
+        autoEvalTried.add(String(idea.id));
+        runAiEvaluation(idea.id, { silent: true });
+    }
     if (!idea.title) document.getElementById('title').focus();
 }
 
@@ -806,11 +899,57 @@ async function deleteIdea(id) {
     render();
 }
 
+// Fuera de Ideas Iniciales la prioridad sale de la matriz (o del cambio del equipo).
+function applyPriority(idea) {
+    if (idea.status === 'initial') {
+        idea.priority = '';
+        idea.priority_score = null;
+        return;
+    }
+    if (idea.status === 'discarded') return;
+    const m = matrixFor(idea, ideas);
+    idea.priority_score = m.score;
+    idea.priority = effectivePriority(idea, m);
+    if (!idea.priority_override) idea.priority_override_reason = '';
+}
+
+// Evalúa una idea con IA y guarda solo el resultado. `silent` evita avisos de
+// éxito cuando corre sola en segundo plano.
+async function runAiEvaluation(id, { silent = false } = {}) {
+    const key = String(id);
+    if (evaluatingIds.has(key)) return;
+    const base = ideas.find(i => String(i.id) === key);
+    if (!base) return;
+    // Si el formulario de esta idea está abierto, se evalúa lo que está escrito.
+    const source = String(currentEditingId) === key ? readForm(base) : base;
+    evaluatingIds.add(key);
+    if (String(currentEditingId) === key) updateRequirements();
+    try {
+        const evaluation = await requestAiEvaluation(source);
+        const target = ideas.find(i => String(i.id) === key);
+        if (!target) return;
+        target.ai_eval = evaluation;
+        applyPriority(target);
+        saveCache();
+        await supabaseCall('PATCH', `${TABLE}?id=eq.${encodeURIComponent(key)}`,
+            { ai_eval: target.ai_eval, priority: target.priority, priority_score: target.priority_score });
+        if (!silent) showToast('✓ Evaluación con IA lista', 'success');
+    } catch (error) {
+        if (handleAuthError(error)) return;
+        console.error('AI evaluation error:', error);
+        showToast(`⚠️ ${error.message} Se usan valores de respaldo.`, 'warning', 8000);
+    } finally {
+        evaluatingIds.delete(key);
+        if (String(currentEditingId) === key) updateRequirements();
+        else render();
+    }
+}
+
 // Guarda la idea actualizada (local + Supabase). Devuelve true si llegó a Supabase.
 async function persist(updated, successMsg) {
     const index = ideas.findIndex(i => String(i.id) === String(updated.id));
     if (index < 0) return false;
-    if (updated.status === 'initial') updated.priority = '';
+    applyPriority(updated);
     updated.last_edited_by = editorName();
     updated.last_edited_at = new Date().toISOString();
     ideas[index] = updated;
@@ -860,6 +999,10 @@ async function moveIdea(direction) {
     await persist(draft, `✓ Movida a ${target.label}`);
     currentTab = target.id;
     finishEditing();
+    if (target.id === 'discussion' && aiStatusOf(draft) !== 'ok') {
+        autoEvalTried.add(String(draft.id));
+        runAiEvaluation(draft.id, { silent: true });
+    }
 }
 
 async function discardIdea() {
@@ -930,6 +1073,7 @@ function setupModalEvents() {
 function handleModalAction(action) {
     switch (action) {
         case 'save': return saveIdea();
+        case 'ai-eval': return runAiEvaluation(currentEditingId);
         case 'advance': return moveIdea('advance');
         case 'back': return moveIdea('back');
         case 'close': return closeModal();
