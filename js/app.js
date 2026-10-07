@@ -576,7 +576,7 @@ function sectionClaim(idea, open) {
     `, stageIndex(idea.status) > 0);
 }
 
-const ORIGIN_LABELS = { auto: 'Auto', ia: 'IA', respaldo: 'Respaldo' };
+const ORIGIN_LABELS = { auto: 'Auto', ia: 'IA', 'ia-web': 'IA + web', respaldo: 'Respaldo' };
 const AI_STATUS_TEXT = {
     ok: 'Evaluado con IA',
     pendiente: 'IA pendiente: se usan valores de respaldo',
@@ -601,6 +601,17 @@ function matrixHtml(draft) {
             ${scorePill(c.value)}
             <div class="mx-tile-foot"><span class="mx-word">${SCORE_WORDS[c.value]}</span><span class="mx-origin ${c.origin}">${ORIGIN_LABELS[c.origin]}</span></div>
         </div>`).join('');
+    const searchLine = !m.search ? ''
+        : m.search.status === 'ok'
+            ? `<span class="mx-search ok">🔎 Búsqueda web: ${m.search.evidence.length} fuente(s)</span>`
+            : `<span class="mx-search off" title="${escapeHtml(m.search.detail)}">🔎 Sin búsqueda web: circulación estimada sin buscar</span>`;
+    const evidence = m.search && m.search.status === 'ok'
+        ? `<div class="mx-found"><strong>Lo que encontró la búsqueda:</strong><p>${escapeHtml(m.search.summary)}</p>
+            ${m.search.evidence.length ? `<ul>${m.search.evidence.map(e => `<li><a href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(e.title)}</a></li>`).join('')}</ul>` : ''}</div>`
+        : '';
+    const alertsBox = m.alerts.length
+        ? `<div class="mx-alerts"><strong>⚠️ Señales de alerta de la IA</strong><ul>${m.alerts.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul></div>`
+        : '';
     const reasons = m.criteria.map(c => `<li><strong>${escapeHtml(c.short || c.label)}:</strong> ${escapeHtml(c.reason)}</li>`).join('')
         + `<li><strong>Esfuerzo:</strong> ${escapeHtml(m.effort.reason)}</li>`
         + (m.commercial ? `<li><strong>Comercial:</strong> ${escapeHtml(m.commercial.reason)}</li>` : '')
@@ -613,19 +624,23 @@ function matrixHtml(draft) {
             </div>
             <div class="matrix-meta">
                 <span class="mx-status ${status}">${escapeHtml(AI_STATUS_TEXT[status])}${m.model && status === 'ok' ? ` · ${escapeHtml(m.model)}` : ''}</span>
+                ${searchLine}
                 <button type="button" class="btn btn-ghost btn-add" data-action="ai-eval" ${status === 'evaluando' ? 'disabled' : ''}>${m.aiStatus === 'pendiente' ? '✨ Evaluar con IA' : '↻ Reevaluar con IA'}</button>
             </div>
         </div>
         <div class="matrix-bar"><span style="width:${Math.max(2, Math.min(100, m.score))}%;--c:${level.color}"></span></div>
+        ${alertsBox}
         <div class="mx-grid">${tiles}</div>
         <div class="mx-extras">
             <div class="mx-extra"><span class="mx-extra-label">Esfuerzo</span><strong>${escapeHtml(m.effort.label.split(' (')[0])}</strong><span class="mx-extra-note">ajusta ×${m.effort.factor}</span><span class="mx-origin ${m.effort.origin}">${ORIGIN_LABELS[m.effort.origin]}</span></div>
             <div class="mx-extra"><span class="mx-extra-label">Potencial comercial</span>${m.commercial ? `<strong>${SCORE_WORDS[m.commercial.value]} (${m.commercial.value}/3)</strong>` : '<strong>—</strong>'}<span class="mx-extra-note">no suma al puntaje</span></div>
             ${m.balance.factor < 1 ? `<div class="mx-extra warn"><span class="mx-extra-label">Equilibrio</span><strong>×${m.balance.factor}</strong><span class="mx-extra-note">mismo autor repetido</span></div>` : ''}
+            ${m.demand.count > 1 ? `<div class="mx-extra"><span class="mx-extra-label">Demanda</span><strong>🔁 ${m.demand.count} veces</strong><span class="mx-extra-note">ideas parecidas · no puntúa</span></div>` : ''}
         </div>
         <details class="mx-why">
             <summary>Ver por qué de cada puntaje</summary>
             <ul>${reasons}</ul>
+            ${evidence}
         </details>`;
 }
 
@@ -658,7 +673,9 @@ function sectionDiscussion(idea, open) {
 
 function sectionResearch(idea, open) {
     const verdict = idea.verdict ? findOption(VERDICTS, idea.verdict) : null;
+    const alerts = idea.ai_eval && Array.isArray(idea.ai_eval.alerts) ? idea.ai_eval.alerts : [];
     return fold('3 · Investigación', open, `
+        ${alerts.length ? `<div class="mx-alerts"><strong>⚠️ Señales de alerta que detectó la IA al priorizar</strong><ul>${alerts.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul></div>` : ''}
         <div class="form-group">
             <span class="form-label">Fuentes de verificación <span class="form-hint inline">mínimo ${L.MIN_VERIFICATION_SOURCES} independientes · busca también evidencia contraria</span></span>
             <div class="rows" id="verificationSources">${(idea.sources.length ? idea.sources : [{}, {}]).map(verificationSourceRow).join('')}</div>

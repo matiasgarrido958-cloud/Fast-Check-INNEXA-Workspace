@@ -1,8 +1,8 @@
 // Matriz de priorización automática (etapa En Discusión).
-// Combina señales calculadas por la página (circulación, actualidad, demanda,
-// equilibrio) con la evaluación de Gemini (consecuencias, relevancia,
-// verificabilidad, esfuerzo y potencial comercial). Configuración en
-// js/lineamientos.js → MATRIX.
+// Gemini evalúa consecuencias, circulación y vigencia (con búsqueda en Google),
+// relevancia, verificabilidad, esfuerzo, potencial comercial y señales de alerta.
+// La página aporta respaldos si la IA no está disponible, el ajuste de equilibrio
+// y el aviso de demanda. Configuración en js/lineamientos.js → MATRIX.
 
 const MATRIX = window.LINEAMIENTOS.MATRIX;
 
@@ -75,30 +75,22 @@ function sameAuthor(a, b) {
 
 // --- Señales calculadas por la página ---
 
-function circulationSignal(idea) {
+// Respaldo sin IA: plataformas distintas en los enlaces, limitado por la antigüedad.
+function circulationFallback(idea) {
     const refs = [idea.claim_url, ...idea.initial_sources.map(s => s.ref)];
     const platforms = [...new Set(refs.map(platformOf).filter(Boolean))];
-    const sources = refs.filter(r => String(r || '').trim()).length;
     let value = platforms.length >= 3 ? 3 : platforms.length === 2 ? 2 : 1;
-    if (value < 2 && sources >= 4) value = 2;
-    const list = platforms.map(p => p.replace(/^Web: /, '')).join(', ');
-    const reason = platforms.length
-        ? `${platforms.length} plataforma(s): ${list}`
-        : 'Sin enlaces reconocibles en la afirmación ni en las fuentes';
-    return { value, reason };
-}
-
-function recencySignal(idea) {
     const days = daysSince(idea.claim_date);
-    if (days === null) return { value: 1, reason: 'Sin fecha de la afirmación' };
-    const value = days <= MATRIX.RECENCY_DAYS.three ? 3 : days <= MATRIX.RECENCY_DAYS.two ? 2 : 1;
-    return { value, reason: days === 0 ? 'Es de hoy' : `Hace ${days} día(s)` };
+    if (days !== null && days > MATRIX.RECENCY_DAYS.two) value = Math.min(value, 2);
+    if (days !== null && days > 365) value = 1;
+    const list = platforms.map(p => p.replace(/^Web: /, '')).join(', ');
+    const age = days === null ? 'sin fecha' : days === 0 ? 'de hoy' : `de hace ${days} día(s)`;
+    return { value, reason: `${platforms.length ? `${platforms.length} sitio(s): ${list}` : 'Sin enlaces reconocibles'}; ${age} (respaldo automático)` };
 }
 
 function demandSignal(idea, allIdeas) {
     const count = allIdeas.filter(other => String(other.id) === String(idea.id) || similarTitles(other.title, idea.title)).length;
-    const value = count >= 3 ? 3 : count === 2 ? 2 : 1;
-    return { value, reason: count > 1 ? `Propuesta ${count} veces (ideas parecidas)` : 'Propuesta 1 vez' };
+    return { count, reason: count > 1 ? `Propuesta ${count} veces (ideas parecidas en el workspace)` : '' };
 }
 
 function balanceSignal(idea, allIdeas) {
@@ -180,7 +172,7 @@ async function requestAiEvaluation(idea) {
             : `IA no disponible (${response.status}): ${detail}`);
     }
     const scores = {};
-    for (const id of ['consecuencias', 'relevancia', 'verificabilidad', 'comercial']) {
+    for (const id of ['consecuencias', 'circulacion', 'relevancia', 'verificabilidad', 'comercial']) {
         const item = data && data[id];
         const value = item && clampScore(item.value);
         if (value) scores[id] = { value, reason: String(item.reason || '').slice(0, 300) };
@@ -189,8 +181,19 @@ async function requestAiEvaluation(idea) {
         ? { value: data.esfuerzo.value, reason: String(data.esfuerzo.reason || '').slice(0, 300) }
         : null;
     if (!Object.keys(scores).length) throw new Error('La IA respondió en un formato inesperado.');
+    const alerts = String((data && data.alertas) || '').split('|').map(a => a.trim()).filter(Boolean).slice(0, 6).map(a => a.slice(0, 300));
+    const rawSearch = (data && data.search) || {};
+    const search = {
+        status: rawSearch.status === 'ok' ? 'ok' : 'no_disponible',
+        summary: String(rawSearch.summary || '').slice(0, 1500),
+        detail: String(rawSearch.detail || '').slice(0, 300),
+        evidence: (Array.isArray(rawSearch.evidence) ? rawSearch.evidence : [])
+            .filter(e => e && /^https?:\/\//i.test(String(e.url || '')))
+            .slice(0, 6)
+            .map(e => ({ title: String(e.title || e.url).slice(0, 160), url: String(e.url).slice(0, 600) }))
+    };
     return {
-        scores, effort, model: data.model || '', evaluated_at: new Date().toISOString(), input_key: aiInputKey(idea)
+        scores, effort, alerts, search, model: data.model || '', evaluated_at: new Date().toISOString(), input_key: aiInputKey(idea)
     };
 }
 
@@ -199,26 +202,20 @@ async function requestAiEvaluation(idea) {
 function matrixFor(idea, allIdeas) {
     const ai = idea.ai_eval && idea.ai_eval.scores ? idea.ai_eval : null;
     const aiStatus = aiStatusOf(idea);
-    const auto = {
-        circulacion: circulationSignal(idea),
-        actualidad: recencySignal(idea),
-        demanda: demandSignal(idea, allIdeas)
-    };
     const fallback = {
+        circulacion: circulationFallback(idea),
         verificabilidad: fallbackVerifiability(idea),
         relevancia: fallbackRelevance(idea),
         consecuencias: { value: 2, reason: 'Valor neutro hasta que la IA evalúe' }
     };
+    const searched = Boolean(ai && ai.search && ai.search.status === 'ok');
 
     const criteria = MATRIX.CRITERIA.map(c => {
         let entry;
         let origin;
-        if (c.source === 'auto') {
-            entry = auto[c.id];
-            origin = 'auto';
-        } else if (ai && ai.scores[c.id]) {
+        if (ai && ai.scores[c.id]) {
             entry = ai.scores[c.id];
-            origin = 'ia';
+            origin = c.id === 'circulacion' && searched ? 'ia-web' : 'ia';
         } else {
             entry = fallback[c.id] || { value: 2, reason: 'Sin datos' };
             origin = 'respaldo';
@@ -241,7 +238,13 @@ function matrixFor(idea, allIdeas) {
     const level = score >= MATRIX.THRESHOLDS.high ? 'high' : score >= MATRIX.THRESHOLDS.medium ? 'medium' : 'low';
     const commercial = ai && ai.scores.comercial ? ai.scores.comercial : null;
 
-    return { criteria, effort, balance, base: Math.round(base), score, level, commercial, aiStatus, model: ai ? ai.model : '' };
+    return {
+        criteria, effort, balance, base: Math.round(base), score, level, commercial, aiStatus,
+        model: ai ? ai.model : '',
+        alerts: ai && Array.isArray(ai.alerts) ? ai.alerts : [],
+        search: ai && ai.search ? ai.search : null,
+        demand: demandSignal(idea, allIdeas)
+    };
 }
 
 // Prioridad final: la que decidió el equipo (si cambió la de la matriz) o la de la matriz.

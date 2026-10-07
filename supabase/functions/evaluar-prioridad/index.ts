@@ -4,6 +4,11 @@
 //   GEMINI_API_KEY  (obligatorio) clave de Google AI Studio
 //   GEMINI_MODEL    (opcional)    modelo a usar; por defecto el Flash vigente
 //
+// Funciona en dos pasos:
+//   1. Búsqueda: Gemini busca en Google dónde circula la afirmación y si sigue vigente.
+//   2. Evaluación: con esos hallazgos, Gemini puntúa cada criterio en JSON.
+// Si la búsqueda no está disponible (cuota, modelo), la evaluación se hace igual sin ella.
+//
 // Solo responde a usuarios con sesión iniciada en el workspace: la página envía
 // su token y aquí se valida contra Supabase Auth. La clave de Gemini nunca sale
 // de este servidor.
@@ -18,14 +23,17 @@ const CORS_HEADERS = {
 const DEFAULT_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
 // Respuestas de Gemini que justifican probar otro modelo.
 const RETRY_WITH_NEXT_MODEL = new Set([404, 429, 500, 503]);
+const MAX_EVIDENCE = 6;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const REASON = { type: 'STRING', description: 'Justificación en español, máximo 30 palabras, con razonamiento propio (no repitas los datos entregados).' };
 
 const SCORE = (description: string) => ({
     type: 'OBJECT',
     properties: {
         value: { type: 'INTEGER', description: `${description} Valor entero 1, 2 o 3.` },
-        reason: { type: 'STRING', description: 'Justificación breve en español (máximo 25 palabras).' }
+        reason: REASON
     },
     required: ['value', 'reason']
 });
@@ -36,18 +44,26 @@ const RESPONSE_SCHEMA = {
         verificabilidad: SCORE('Verificabilidad.'),
         relevancia: SCORE('Relevancia del tema y del emisor.'),
         consecuencias: SCORE('Consecuencias si la gente la cree.'),
+        circulacion: SCORE('Circulación y vigencia de la afirmación.'),
         esfuerzo: {
             type: 'OBJECT',
             properties: {
                 value: { type: 'STRING', enum: ['bajo', 'medio', 'alto'] },
-                reason: { type: 'STRING', description: 'Justificación breve en español (máximo 25 palabras).' }
+                reason: REASON
             },
             required: ['value', 'reason']
         },
-        comercial: SCORE('Potencial comercial o institucional para INNEXA HUB.')
+        comercial: SCORE('Potencial comercial o institucional para INNEXA HUB.'),
+        alertas: {
+            type: 'STRING',
+            description: 'Señales de alerta para quien investigue, separadas por " | ". Texto vacío si no hay.'
+        }
     },
-    required: ['verificabilidad', 'relevancia', 'consecuencias', 'esfuerzo', 'comercial']
+    required: ['verificabilidad', 'relevancia', 'consecuencias', 'circulacion', 'esfuerzo', 'comercial', 'alertas']
 };
+
+type Evidence = { title: string; url: string };
+type SearchResult = { status: 'ok' | 'no_disponible'; summary: string; evidence: Evidence[]; detail?: string };
 
 function json(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
@@ -57,8 +73,36 @@ function clip(value: unknown, max = 600): string {
     return String(value ?? '').slice(0, max);
 }
 
-function buildPrompt(idea: Record<string, unknown>, today: string): string {
-    const sources = Array.isArray(idea.initial_sources) ? idea.initial_sources.slice(0, 10).map(s => `- ${clip(s, 300)}`).join('\n') : '';
+function describeIdea(idea: Record<string, unknown>): string {
+    const sources = Array.isArray(idea.initial_sources) ? idea.initial_sources.slice(0, 10).map(s => `  - ${clip(s, 300)}`).join('\n') : '';
+    return `- Afirmación: ${clip(idea.title)}
+- Quién la dijo: ${clip(idea.claim_author, 200)}
+- Fecha de la afirmación (según el equipo): ${clip(idea.claim_date, 20)}
+- Enlace: ${clip(idea.claim_url, 300)}
+- Categoría: ${clip(idea.category, 100)}
+- Alcance: ${clip(idea.scope, 300)}
+- Pregunta a verificar: ${clip(idea.question, 300)}
+- Gancho / contexto: ${clip(idea.gancho, 800)}
+- Fuentes iniciales:
+${sources || '  - (sin fuentes)'}`;
+}
+
+function buildSearchPrompt(idea: Record<string, unknown>, today: string): string {
+    return `Hoy es ${clip(today, 10)}. Investiga en la web la circulación de esta afirmación (o de su cifra central):
+
+${describeIdea(idea)}
+
+Responde en español, en texto breve (máximo 120 palabras), con:
+1. Dónde aparece: tipo de medios o redes y si son de alcance nacional, de nicho o marginales.
+2. Vigencia: fecha de la mención más reciente que encuentres y si se sigue citando o compartiendo.
+3. Origen: la fuente original de la cifra o afirmación, si la identificas, y si coincide con lo que se afirma.
+No juzgues si es verdadera; solo describe su circulación y origen.`;
+}
+
+function buildPrompt(idea: Record<string, unknown>, today: string, search: SearchResult): string {
+    const searchBlock = search.status === 'ok'
+        ? `Hallazgos de una búsqueda web reciente sobre su circulación:\n${clip(search.summary, 1500)}\n${search.evidence.map(e => `  - ${clip(e.title, 120)}`).join('\n')}`
+        : 'No hubo búsqueda web disponible: evalúa la circulación solo con los enlaces entregados y dilo en el motivo.';
     return `Eres parte del equipo editorial de "Fast Check INNEXA", un proyecto de INNEXA HUB (Universidad de Las Américas, Chile)
 que verifica afirmaciones, mitos y rumores sobre innovación, inteligencia artificial, tecnología y startups, con foco en Chile,
 y publica en Instagram. El equipo son 3 estudiantes.
@@ -67,10 +111,11 @@ Tu tarea: puntuar UNA afirmación para priorizar qué se verifica primero. Los c
 profesionales (Full Fact, Maldita.es, Chequeado, Fast Check CL) y la investigación sobre "check-worthiness" (ClaimBuster, CheckThat!).
 
 Reglas:
-- Evalúa solo con la información entregada. No inventes datos sobre cuánto circula ni hechos externos.
-- Si falta información para un criterio, usa 2.
+- No repitas los datos entregados: cada motivo debe aportar razonamiento propio.
+- Puedes usar conocimiento general bien establecido (por ejemplo, el tamaño aproximado de la población o de la fuerza
+  laboral de Chile) para detectar cifras imposibles o inconsistentes. No inventes datos específicos.
+- Si falta información para un criterio, usa 2 y dilo.
 - Sé mesurado con las consecuencias: suelen sobreestimarse.
-- Razones en español, neutrales, máximo 25 palabras cada una.
 - Fecha de hoy: ${clip(today, 10)}.
 
 Criterios (1 a 3):
@@ -81,23 +126,21 @@ Criterios (1 a 3):
 - consecuencias (si la gente la cree): 3 = puede llevar a decisiones con costo real (dinero, inversión, empleo, carrera,
   políticas públicas, seguridad); 2 = distorsiona la comprensión del tema y puede llevar a malas decisiones menores;
   1 = anecdótico, con poco efecto práctico.
+- circulacion (alcance y vigencia): 3 = circula ampliamente (medios nacionales o viral en redes) y se sigue citando en los
+  últimos meses; 2 = circulación moderada o de nicho, o amplia pero antigua; 1 = marginal, sin menciones recientes.
+  Varios sitios pequeños que replican lo mismo NO equivalen a circulación amplia.
 - esfuerzo (para verificarla este equipo): bajo = menos de 2 horas, hay datos oficiales fáciles de encontrar;
   medio = cerca de 1 día, requiere varias fuentes o cálculos; alto = más de 3 días, requiere estudios especializados,
   expertos o datos no públicos.
 - comercial: potencial de valor institucional o comercial para INNEXA HUB (vinculación con empresas, formación, alianzas,
   posicionamiento universitario). Es solo informativo: no cambia la prioridad. 3 = alto, 2 = medio, 1 = bajo.
+- alertas: inconsistencias que el equipo debe revisar al investigar (cifras imposibles, error de unidades o decimales,
+  datos desactualizados, fuente original distinta de lo que se afirma, fecha dudosa). Texto vacío si no hay.
 
 Afirmación a evaluar:
-- Afirmación: ${clip(idea.title)}
-- Quién la dijo: ${clip(idea.claim_author, 200)}
-- Fecha: ${clip(idea.claim_date, 20)}
-- Enlace: ${clip(idea.claim_url, 300)}
-- Categoría: ${clip(idea.category, 100)}
-- Alcance: ${clip(idea.scope, 300)}
-- Pregunta a verificar: ${clip(idea.question, 300)}
-- Gancho / contexto: ${clip(idea.gancho, 800)}
-- Fuentes iniciales:
-${sources || '- (sin fuentes)'}`;
+${describeIdea(idea)}
+
+${searchBlock}`;
 }
 
 async function isAuthenticated(req: Request): Promise<boolean> {
@@ -109,19 +152,65 @@ async function isAuthenticated(req: Request): Promise<boolean> {
     return res.ok;
 }
 
-async function callGemini(apiKey: string, model: string, prompt: string) {
+async function callGemini(apiKey: string, model: string, body: unknown) {
     return await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-                temperature: 0.2,
-                responseMimeType: 'application/json',
-                responseSchema: RESPONSE_SCHEMA
-            }
-        })
+        body: JSON.stringify(body)
     });
+}
+
+// Llama a Gemini probando los modelos en orden; reintenta una vez si está saturado.
+async function callWithFallback(apiKey: string, models: string[], body: unknown) {
+    let lastError = '';
+    let lastStatus = 502;
+    for (const model of models) {
+        let res = await callGemini(apiKey, model, body);
+        if (res.status === 503) {
+            await sleep(1500);
+            res = await callGemini(apiKey, model, body);
+        }
+        const data = await res.json().catch(() => null);
+        if (res.ok) return { ok: true as const, model, data };
+        const message = data?.error?.message || `Gemini respondió ${res.status}`;
+        if (!RETRY_WITH_NEXT_MODEL.has(res.status)) return { ok: false as const, status: 502, error: message };
+        lastError = res.status === 404 ? `Modelo ${model} no disponible`
+            : res.status === 429 ? `Cuota de Gemini agotada por ahora: ${message}`
+                : `Gemini saturado por ahora: ${message}`;
+        lastStatus = res.status === 429 ? 429 : 502;
+    }
+    return { ok: false as const, status: lastStatus, error: lastError || 'Ningún modelo disponible' };
+}
+
+function textOf(data: any): string {
+    return data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
+}
+
+// Paso 1: búsqueda en Google. Nunca hace fallar la evaluación.
+async function searchCirculation(apiKey: string, models: string[], idea: Record<string, unknown>, today: string): Promise<SearchResult> {
+    try {
+        const result = await callWithFallback(apiKey, models, {
+            contents: [{ role: 'user', parts: [{ text: buildSearchPrompt(idea, today) }] }],
+            tools: [{ google_search: {} }],
+            generationConfig: { temperature: 0.2 }
+        });
+        if (!result.ok) return { status: 'no_disponible', summary: '', evidence: [], detail: result.error };
+        const summary = textOf(result.data).trim();
+        const chunks = result.data?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const seen = new Set<string>();
+        const evidence: Evidence[] = [];
+        for (const chunk of chunks) {
+            const web = chunk?.web;
+            if (!web?.uri || seen.has(web.uri)) continue;
+            seen.add(web.uri);
+            evidence.push({ title: clip(web.title || web.uri, 160), url: clip(web.uri, 600) });
+            if (evidence.length >= MAX_EVIDENCE) break;
+        }
+        if (!summary) return { status: 'no_disponible', summary: '', evidence: [], detail: 'La búsqueda no devolvió resultados' };
+        return { status: 'ok', summary: clip(summary, 1500), evidence };
+    } catch (error) {
+        return { status: 'no_disponible', summary: '', evidence: [], detail: error instanceof Error ? error.message : String(error) };
+    }
 }
 
 Deno.serve(async (req: Request) => {
@@ -138,41 +227,29 @@ Deno.serve(async (req: Request) => {
         const idea = body && typeof body.idea === 'object' ? body.idea : null;
         if (!idea || !String(idea.title || '').trim()) return json({ error: 'Falta la afirmación a evaluar' }, 400);
         const today = /^\d{4}-\d{2}-\d{2}$/.test(String(body.today)) ? String(body.today) : new Date().toISOString().slice(0, 10);
-        const prompt = buildPrompt(idea, today);
 
         const configured = Deno.env.get('GEMINI_MODEL');
         const models = configured ? [configured, ...DEFAULT_MODELS.filter(m => m !== configured)] : DEFAULT_MODELS;
-        let lastError = '';
-        let lastStatus = 502;
-        for (const model of models) {
-            let res = await callGemini(apiKey, model, prompt);
-            // Saturación momentánea: un reintento breve antes de cambiar de modelo.
-            if (res.status === 503) {
-                await sleep(1500);
-                res = await callGemini(apiKey, model, prompt);
-            }
-            const data = await res.json().catch(() => null);
-            if (!res.ok) {
-                const message = data?.error?.message || `Gemini respondió ${res.status}`;
-                if (RETRY_WITH_NEXT_MODEL.has(res.status)) {
-                    lastError = res.status === 404 ? `Modelo ${model} no disponible`
-                        : res.status === 429 ? `Cuota de Gemini agotada por ahora: ${message}`
-                            : `Gemini saturado por ahora: ${message}`;
-                    lastStatus = res.status === 429 ? 429 : 502;
-                    continue;
-                }
-                return json({ error: message }, 502);
-            }
-            const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
-            let parsed;
-            try {
-                parsed = JSON.parse(text);
-            } catch {
-                return json({ error: 'Gemini no devolvió un JSON válido' }, 502);
-            }
-            return json({ ...parsed, model });
+
+        const search = await searchCirculation(apiKey, models, idea, today);
+
+        const result = await callWithFallback(apiKey, models, {
+            contents: [{ role: 'user', parts: [{ text: buildPrompt(idea, today, search) }] }],
+            generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA }
+        });
+        if (!result.ok) return json({ error: result.error }, result.status);
+
+        let parsed;
+        try {
+            parsed = JSON.parse(textOf(result.data));
+        } catch {
+            return json({ error: 'Gemini no devolvió un JSON válido' }, 502);
         }
-        return json({ error: lastError || 'Ningún modelo disponible' }, lastStatus);
+        return json({
+            ...parsed,
+            model: result.model,
+            search: { status: search.status, summary: search.summary, evidence: search.evidence, detail: search.detail || '' }
+        });
     } catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, 500);
     }

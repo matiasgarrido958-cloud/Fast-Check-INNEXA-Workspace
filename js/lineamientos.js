@@ -34,23 +34,20 @@ window.LINEAMIENTOS = {
     ],
 
     // Matriz de priorización automática (etapa En Discusión).
-    // Cada criterio vale 1 a 3. "source" indica quién lo calcula:
-    //   auto = la página, con los datos de la idea · ia = Gemini (con respaldo automático si no hay IA).
+    // Cada criterio vale 1 a 3 y lo evalúa Gemini; si la IA no está disponible se usa
+    // un respaldo automático (plataformas y fecha para circulación, palabras clave para relevancia…).
+    // "Demanda" (veces que se propuso algo parecido) se muestra como aviso, no puntúa.
     // El puntaje se normaliza a 0–100, se ajusta por esfuerzo y equilibrio, y los cortes dan Alta/Media/Baja.
     MATRIX: {
         CRITERIA: [
             { id: 'consecuencias', label: 'Consecuencias si se cree', short: 'Consecuencias', weight: 3, source: 'ia',
                 hint: 'Decisiones de emprendedores, inversión, empleo o políticas públicas que podría afectar.' },
-            { id: 'circulacion', label: 'Circulación', weight: 2, source: 'auto',
-                hint: 'Plataformas distintas entre la afirmación y sus fuentes iniciales.' },
+            { id: 'circulacion', label: 'Circulación y vigencia', short: 'Circulación', weight: 2, source: 'ia',
+                hint: 'La IA busca en Google dónde circula y si se sigue citando. Sin búsqueda: plataformas y fecha.' },
             { id: 'relevancia', label: 'Relevancia (tema y emisor)', short: 'Relevancia', weight: 2, source: 'ia',
                 hint: 'Importancia para la innovación y tecnología en Chile; peso de quien lo dice.' },
             { id: 'verificabilidad', label: 'Verificabilidad', weight: 1, source: 'ia',
-                hint: 'Hecho concreto y comprobable (cifra, dato) vs. opinión o predicción.' },
-            { id: 'actualidad', label: 'Actualidad', weight: 1, source: 'auto',
-                hint: 'Días desde la fecha de la afirmación.' },
-            { id: 'demanda', label: 'Demanda', weight: 1, source: 'auto',
-                hint: 'Veces que se propuso la misma afirmación en el workspace.' }
+                hint: 'Hecho concreto y comprobable (cifra, dato) vs. opinión o predicción.' }
         ],
         // El esfuerzo (lo estima la IA) multiplica el puntaje.
         EFFORT: [
@@ -60,7 +57,7 @@ window.LINEAMIENTOS = {
         ],
         // Cortes sobre 100.
         THRESHOLDS: { high: 60, medium: 35 },
-        // Actualidad: días máximos para 3 y 2 puntos.
+        // Respaldo de circulación: días máximos para considerar la afirmación reciente.
         RECENCY_DAYS: { three: 7, two: 30 },
         // Equilibrio: si el mismo autor/medio ya tiene esta cantidad de ideas activas
         // en los últimos días indicados, el puntaje se multiplica por FACTOR.

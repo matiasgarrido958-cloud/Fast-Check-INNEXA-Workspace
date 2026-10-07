@@ -46,20 +46,20 @@ Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsa
 
 ## Matriz de priorización
 
-En **En Discusión** la prioridad se calcula sola (0–100 → Alta, Media o Baja):
+En **En Discusión** la prioridad se calcula sola (0–100 → Alta, Media o Baja). Gemini evalúa:
 
-| Criterio | Peso | Lo calcula |
-|---|---|---|
-| Consecuencias si se cree | ×3 | Gemini |
-| Circulación (plataformas distintas en los enlaces) | ×2 | La página |
-| Relevancia (tema y emisor) | ×2 | Gemini |
-| Verificabilidad | ×1 | Gemini |
-| Actualidad (días desde la fecha de la afirmación) | ×1 | La página |
-| Demanda (veces que se propuso algo parecido) | ×1 | La página |
+| Criterio | Peso |
+|---|---|
+| Consecuencias si se cree | ×3 |
+| Circulación y vigencia (con búsqueda en Google) | ×2 |
+| Relevancia (tema y emisor) | ×2 |
+| Verificabilidad | ×1 |
 
-El esfuerzo estimado (Gemini) multiplica el puntaje, y hay un ajuste de equilibrio si el mismo autor
-concentra varias ideas. El potencial comercial lo estima Gemini, pero es solo informativo.
-Si la IA no está disponible se usan valores de respaldo y la página lo indica.
+El esfuerzo estimado multiplica el puntaje y hay un ajuste de equilibrio si el mismo autor concentra
+varias ideas. Gemini también entrega **señales de alerta** (cifras imposibles, datos desactualizados…),
+que se muestran en la matriz y en la etapa de investigación, y las fuentes que encontró al buscar.
+El potencial comercial y la demanda (ideas parecidas) se muestran pero no puntúan.
+Si la IA o la búsqueda no están disponibles se usan respaldos automáticos y la página lo indica.
 El equipo puede cambiar la prioridad final escribiendo el motivo.
 Pesos, cortes y palabras clave: `js/lineamientos.js` → `MATRIX`.
 
