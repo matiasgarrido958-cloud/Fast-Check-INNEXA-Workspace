@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" id="themeCss" href="css/theme-institucional.css?v=202610070625">
+    <link rel="stylesheet" id="themeCss" href="css/theme-institucional.css?v=202610070657">
     <script>
         // Aplica el tema guardado antes de pintar la página (evita parpadeo).
         (function () {
@@ -16,7 +16,7 @@
             try { theme = localStorage.getItem('fast-check-theme') || theme; } catch (e) {}
             if (theme !== 'cyber') theme = 'institucional';
             document.documentElement.dataset.theme = theme;
-            document.getElementById('themeCss').href = 'css/theme-' + theme + '.css?v=202610070625';
+            document.getElementById('themeCss').href = 'css/theme-' + theme + '.css?v=202610070657';
         })();
     </script>
 </head>
@@ -47,6 +47,7 @@ if (verdict.sources.length &lt; 2) {
         <symbol id="i-logout" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></symbol>
         <symbol id="i-search" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></symbol>
         <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="currentColor" d="M12 3.5a8.5 8.5 0 0 1 0 17z"/></symbol>
+        <symbol id="i-archive" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 4h18v4H3zM5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></symbol>
         <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
     </svg>
 
@@ -111,6 +112,7 @@ if (verdict.sources.length &lt; 2) {
             </div>
 
             <nav class="pipeline" id="tabs" aria-label="Etapas"></nav>
+            <div class="board-bar" id="boardBar"></div>
             <div id="content"></div>
         </main>
 
@@ -142,17 +144,15 @@ if (verdict.sources.length &lt; 2) {
                 <button class="modal-close" id="btnCloseModal" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body" id="modalBody"></div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost" id="btnModalClose">Cancelar</button>
-                <button class="btn btn-primary" id="btnSaveIdea">Guardar cambios</button>
-            </div>
+            <div class="modal-footer" id="modalFooter"></div>
         </div>
     </div>
 
     <div class="toast-stack" id="toasts"></div>
 
-    <script src="js/config.js?v=202610070625"></script>
-    <script src="js/supabase.js?v=202610070625"></script>
-    <script src="js/app.js?v=202610070625"></script>
+    <script src="js/config.js?v=202610070657"></script>
+    <script src="js/lineamientos.js?v=202610070657"></script>
+    <script src="js/supabase.js?v=202610070657"></script>
+    <script src="js/app.js?v=202610070657"></script>
 </body>
 </html>

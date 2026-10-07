@@ -12,13 +12,34 @@ css/theme-institucional.css  Diseño claro (por defecto)
 css/theme-cyber.css   Diseño oscuro neón (opcional)
 assets/               Logos INNEXA HUB (original, claro y oscuro)
 js/config.js          URL y publishable key de Supabase
+js/lineamientos.js    Equipo, checklist, tipos de fuente y motivos de descarte
 js/supabase.js        Cliente mínimo de la API REST de Supabase
 js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
+supabase/migracion-flujo-etapas.sql  Columnas del flujo por etapas
 ```
 
 Al cambiar CSS o JS, actualiza el número `?v=` de los `<link>`/`<script>` en `index.html`
 para que los navegadores no mezclen archivos nuevos con versiones en caché.
+
+## Flujo de trabajo
+
+Basado en los *Lineamientos Fast Check INNEXA v3.0*. Cada idea avanza de a una etapa;
+para avanzar debe cumplir los requisitos de la etapa (la página muestra qué falta).
+Retroceder siempre se puede.
+
+| Etapa | Qué se completa | Requisito para avanzar |
+|---|---|---|
+| 1. Ideas Iniciales | Afirmación, quién la dijo, fecha, enlace, alcance, pregunta, categoría, gancho, fuentes iniciales | Afirmación, categoría, autor y 2+ fuentes iniciales |
+| 2. En Discusión | Cobertura, verificable, prioridad, responsable | Todo lo anterior marcado |
+| 3. En Proceso | Fuentes de verificación (tipo y postura), veredicto, explicación, contexto que falta, checklist | 2+ fuentes con título y enlace (o excepción), veredicto, explicación, checklist completo |
+| 4. Pendiente Publicación | Hook, puntos clave, diseño, revisor, aprobación del equipo, checklist | Hook ≤ 10 palabras, revisor distinto del responsable, aprobación y checklist |
+| 5. Publicadas | Link, fecha, guardados, compartidos, correcciones (Fe de Erratas) | — |
+
+Las ideas que no siguen se **descartan** con un motivo (no se borran) y se pueden restaurar.
+Solo desde *Descartadas* se puede eliminar definitivamente.
+
+Integrantes, checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`.
 
 ## Diseños
 

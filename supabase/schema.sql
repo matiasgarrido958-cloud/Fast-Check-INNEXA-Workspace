@@ -9,7 +9,7 @@ create table if not exists public.fast_check_ideas (
     priority        text        default 'medium' check (priority in ('low', 'medium', 'high')),
     gancho          text        default '',
     source          text        default '',
-    status          text        default 'initial' check (status in ('initial', 'discussion', 'working', 'pending', 'published')),
+    status          text        default 'initial' check (status in ('initial', 'discussion', 'working', 'pending', 'published', 'discarded')),
     verdict         text        default '',
     analysis        text        default '',
     sources         jsonb       default '[]'::jsonb,
@@ -36,6 +36,9 @@ alter table public.fast_check_ideas
     add column if not exists checklist      jsonb       default '{}'::jsonb,
     add column if not exists last_edited_by text        default 'Usuario',
     add column if not exists last_edited_at timestamptz default now();
+
+-- Columnas del flujo por etapas: ver supabase/migracion-flujo-etapas.sql
+-- (ejecutar también ese archivo en una instalación nueva).
 
 -- Row Level Security: solo usuarios con sesión iniciada (Supabase Auth)
 -- pueden leer y escribir. Sin sesión, la API no devuelve nada.
