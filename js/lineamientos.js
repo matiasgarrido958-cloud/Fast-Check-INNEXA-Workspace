@@ -1,10 +1,8 @@
 // Reglas del flujo de trabajo, basadas en "LINEAMIENTOS FAST CHECK INNEXA" v3.0.
-// Este es el archivo a editar cuando el equipo cambie integrantes, checklist,
-// tipos de fuente o motivos de descarte.
+// Este es el archivo a editar cuando el equipo cambie el checklist, los tipos
+// de fuente o los motivos de descarte. Los nombres (Responsable, Revisado por)
+// se escriben libremente en cada idea.
 window.LINEAMIENTOS = {
-    // Integrantes: aparecen en Responsable y Revisado por.
-    TEAM_MEMBERS: ['Cristian', 'Mario Estay', 'Matías'],
-
     // Mínimos de la sección "Criterios obligatorios".
     MIN_INITIAL_SOURCES: 2,
     MIN_VERIFICATION_SOURCES: 2,

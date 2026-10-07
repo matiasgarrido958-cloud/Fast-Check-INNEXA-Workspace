@@ -12,7 +12,7 @@ css/theme-institucional.css  Diseño claro (por defecto)
 css/theme-cyber.css   Diseño oscuro neón (opcional)
 assets/               Logos INNEXA HUB (original, claro y oscuro)
 js/config.js          URL y publishable key de Supabase
-js/lineamientos.js    Equipo, checklist, tipos de fuente y motivos de descarte
+js/lineamientos.js    Checklist, tipos de fuente y motivos de descarte
 js/supabase.js        Cliente mínimo de la API REST de Supabase
 js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
@@ -39,7 +39,7 @@ Retroceder siempre se puede.
 Las ideas que no siguen se **descartan** con un motivo (no se borran) y se pueden restaurar.
 Solo desde *Descartadas* se puede eliminar definitivamente.
 
-Integrantes, checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`.
+Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsable y revisor se escriben libremente (la página sugiere los nombres ya usados).
 
 ## Diseños
 

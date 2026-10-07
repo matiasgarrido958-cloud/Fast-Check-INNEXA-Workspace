@@ -154,7 +154,7 @@ function requirementsFor(idea, target) {
             else if (words > 10) missing.push(`El hook tiene ${words} palabras (máximo 10).`);
             if (!idea.key_points.trim()) missing.push('Escribe los puntos clave del post.');
             if (!idea.reviewed_by) missing.push('Indica quién revisó.');
-            else if (idea.reviewed_by === idea.owner) missing.push('La revisión debe hacerla una persona distinta del responsable.');
+            else if (samePerson(idea.reviewed_by, idea.owner)) missing.push('La revisión debe hacerla una persona distinta del responsable.');
             const k = unchecked(L.CHECKLIST_PUBLISH);
             if (k) missing.push(`Completa el checklist de publicación (faltan ${k}).`);
             if (!idea.approved_by_team) missing.push('Falta la aprobación del equipo.');
@@ -422,8 +422,25 @@ function optionsHtml(list, selected, placeholder = '') {
     return first + options.map(o => `<option value="${escapeHtml(o.id)}" ${selected === o.id ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
 }
 
-function memberOptions(selected) {
-    return optionsHtml(L.TEAM_MEMBERS.map(name => ({ id: name, label: name })), selected, '— Elegir —');
+// Nombres libres: se sugieren los que ya se usaron para mantenerlos parejos.
+function samePerson(a, b) {
+    const norm = s => (s || '').trim().toLowerCase();
+    return norm(a) !== '' && norm(a) === norm(b);
+}
+
+function peopleDatalist() {
+    const names = new Map();
+    for (const idea of ideas) {
+        for (const name of [idea.owner, idea.reviewed_by]) {
+            const clean = (name || '').trim();
+            if (clean && !names.has(clean.toLowerCase())) names.set(clean.toLowerCase(), clean);
+        }
+    }
+    return `<datalist id="peopleList">${[...names.values()].sort().map(n => `<option value="${escapeHtml(n)}">`).join('')}</datalist>`;
+}
+
+function personInput(id, value) {
+    return `<input class="form-input" id="${id}" list="peopleList" value="${escapeHtml(value)}" placeholder="Escribe un nombre" autocomplete="off">`;
 }
 
 function pillsHtml(name, list, selected, allowEmpty) {
@@ -537,7 +554,7 @@ function sectionDiscussion(idea, open) {
             </div>
             <div class="form-group">
                 <label class="form-label" for="owner">Responsable</label>
-                <select class="form-select" id="owner">${memberOptions(idea.owner)}</select>
+                ${personInput('owner', idea.owner)}
             </div>
         </div>
     `, stageIndex(idea.status) > 1);
@@ -575,7 +592,7 @@ function sectionPublish(idea, open) {
         <div class="row-2">
             <div class="form-group">
                 <label class="form-label" for="reviewed_by">Revisado por</label>
-                <select class="form-select" id="reviewed_by">${memberOptions(idea.reviewed_by)}</select>
+                ${personInput('reviewed_by', idea.reviewed_by)}
                 <span class="form-hint">Otra persona distinta del responsable${idea.owner ? ` (${escapeHtml(idea.owner)})` : ''}.</span>
             </div>
             <div class="form-group">
@@ -621,7 +638,7 @@ function sectionDiscard(idea) {
 function renderModalBody(idea) {
     const i = stageIndex(idea.status);
     const discarded = idea.status === 'discarded';
-    let html = '<div class="req-box" id="reqBox"></div>';
+    let html = '<div class="req-box" id="reqBox"></div>' + peopleDatalist();
     html += sectionDiscard(idea);
     html += sectionClaim(idea, i === 0);
     if (i >= 1 || discarded) html += sectionDiscussion(idea, i === 1);
