@@ -14,8 +14,12 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-// Si el modelo configurado no existe (404), se prueba el siguiente.
-const DEFAULT_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash'];
+// Si un modelo no existe, está saturado o sin cuota, se prueba el siguiente.
+const DEFAULT_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
+// Respuestas de Gemini que justifican probar otro modelo.
+const RETRY_WITH_NEXT_MODEL = new Set([404, 429, 500, 503]);
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const SCORE = (description: string) => ({
     type: 'OBJECT',
@@ -139,16 +143,25 @@ Deno.serve(async (req: Request) => {
         const configured = Deno.env.get('GEMINI_MODEL');
         const models = configured ? [configured, ...DEFAULT_MODELS.filter(m => m !== configured)] : DEFAULT_MODELS;
         let lastError = '';
+        let lastStatus = 502;
         for (const model of models) {
-            const res = await callGemini(apiKey, model, prompt);
-            if (res.status === 404) {
-                lastError = `Modelo ${model} no disponible`;
-                continue;
+            let res = await callGemini(apiKey, model, prompt);
+            // Saturación momentánea: un reintento breve antes de cambiar de modelo.
+            if (res.status === 503) {
+                await sleep(1500);
+                res = await callGemini(apiKey, model, prompt);
             }
             const data = await res.json().catch(() => null);
             if (!res.ok) {
                 const message = data?.error?.message || `Gemini respondió ${res.status}`;
-                return json({ error: res.status === 429 ? `Cuota de Gemini agotada por ahora: ${message}` : message }, res.status === 429 ? 429 : 502);
+                if (RETRY_WITH_NEXT_MODEL.has(res.status)) {
+                    lastError = res.status === 404 ? `Modelo ${model} no disponible`
+                        : res.status === 429 ? `Cuota de Gemini agotada por ahora: ${message}`
+                            : `Gemini saturado por ahora: ${message}`;
+                    lastStatus = res.status === 429 ? 429 : 502;
+                    continue;
+                }
+                return json({ error: message }, 502);
             }
             const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
             let parsed;
@@ -159,7 +172,7 @@ Deno.serve(async (req: Request) => {
             }
             return json({ ...parsed, model });
         }
-        return json({ error: lastError || 'Ningún modelo disponible' }, 502);
+        return json({ error: lastError || 'Ningún modelo disponible' }, lastStatus);
     } catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, 500);
     }
