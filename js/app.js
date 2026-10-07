@@ -5,22 +5,22 @@ const STATUSES = [
     { id: 'initial', label: 'Ideas Iniciales', color: '#00f0ff' },
     { id: 'discussion', label: 'En Discusión', color: '#d05cff' },
     { id: 'working', label: 'En Proceso', color: '#39ff14' },
-    { id: 'pending', label: 'Pendiente Publicación', color: '#ff9900' },
+    { id: 'pending', label: 'Pendiente Publicación', color: '#ff8a1f' },
     { id: 'published', label: 'Publicadas', color: '#00ffcc' }
 ];
 
 const VERDICTS = [
     { id: 'verdadero', label: 'Verdadero', color: '#00ffcc' },
     { id: 'falso', label: 'Falso', color: '#ff2a6d' },
-    { id: 'engañoso', label: 'Engañoso', color: '#ff9900' },
-    { id: 'exagerada', label: 'Exagerada', color: '#ffd000' },
+    { id: 'engañoso', label: 'Engañoso', color: '#ff5a36' },
+    { id: 'exagerada', label: 'Exagerada', color: '#ffa94d' },
     { id: 'depende', label: 'Depende', color: '#d05cff' },
     { id: 'insuficiente', label: 'Evidencia Insuficiente', color: '#8fa8d8' }
 ];
 
 const PRIORITIES = [
     { id: 'high', label: 'Alta', color: '#ff2a6d' },
-    { id: 'medium', label: 'Media', color: '#ff9900' },
+    { id: 'medium', label: 'Media', color: '#ff8a1f' },
     { id: 'low', label: 'Baja', color: '#39ff14' }
 ];
 
