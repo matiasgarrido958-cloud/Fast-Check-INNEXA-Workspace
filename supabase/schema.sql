@@ -20,6 +20,23 @@ create table if not exists public.fast_check_ideas (
     last_edited_at  timestamptz default now()
 );
 
+-- Si la tabla ya existía con menos columnas, agrega las que falten.
+alter table public.fast_check_ideas
+    add column if not exists title          text        default '',
+    add column if not exists category       text        default '',
+    add column if not exists priority       text        default 'medium',
+    add column if not exists gancho         text        default '',
+    add column if not exists source         text        default '',
+    add column if not exists status         text        default 'initial',
+    add column if not exists verdict        text        default '',
+    add column if not exists analysis       text        default '',
+    add column if not exists sources        jsonb       default '[]'::jsonb,
+    add column if not exists "errorLevel"   text        default '',
+    add column if not exists "errorNotes"   text        default '',
+    add column if not exists checklist      jsonb       default '{}'::jsonb,
+    add column if not exists last_edited_by text        default 'Usuario',
+    add column if not exists last_edited_at timestamptz default now();
+
 -- Row Level Security.
 -- La app no tiene login: cualquiera con la publishable key puede leer y escribir.
 -- Si más adelante agregas Supabase Auth, cambia "to anon" por "to authenticated".
@@ -34,3 +51,12 @@ create policy "fast_check_ideas_select" on public.fast_check_ideas for select to
 create policy "fast_check_ideas_insert" on public.fast_check_ideas for insert to anon with check (true);
 create policy "fast_check_ideas_update" on public.fast_check_ideas for update to anon using (true) with check (true);
 create policy "fast_check_ideas_delete" on public.fast_check_ideas for delete to anon using (true);
+
+-- Avisa a la API de Supabase que recargue la estructura de las tablas.
+notify pgrst, 'reload schema';
+
+-- Muestra las columnas finales de la tabla (para verificar).
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public' and table_name = 'fast_check_ideas'
+order by ordinal_position;

@@ -50,6 +50,9 @@ let ideas = [];
 let currentEditingId = null;
 let hasUnsavedChanges = false;
 let currentTab = 'initial';
+// Solo se sincroniza con Supabase si la carga inicial funcionó; si no, el
+// tablero vacío de Supabase reemplazaría las ideas del cache local.
+let connected = false;
 
 function showToast(msg, type = 'success', durationMs = 3000) {
     const toast = document.createElement('div');
@@ -91,8 +94,10 @@ async function loadIdeas() {
             await supabaseCall('POST', TABLE, ideas);
             showToast(`✓ Inicializadas ${ideas.length} ideas en Supabase`, 'success');
         }
+        connected = true;
         saveCache();
     } catch (error) {
+        connected = false;
         console.error('Error loading from Supabase:', error);
         showToast(`⚠️ Error conectando a Supabase, usando cache local. Detalle: ${error.message}`, 'warning', 15000);
         ideas = readCache() || INITIAL_IDEAS.map(([id, title, category, priority]) => blankIdea(id, title, category, priority, 'Sistema'));
@@ -104,7 +109,7 @@ async function loadIdeas() {
 // Sincronización con Supabase (polling). Se pausa mientras se edita una idea
 // para no pisar los cambios del formulario abierto.
 setInterval(async () => {
-    if (currentEditingId) return;
+    if (!connected || currentEditingId) return;
     try {
         const data = await supabaseCall('GET', `${TABLE}?order=id`);
         if (Array.isArray(data) && JSON.stringify(ideas) !== JSON.stringify(data)) {
@@ -191,7 +196,7 @@ function optionsHtml(list, selected, placeholder) {
 }
 
 function openModal(id) {
-    const idea = ideas.find(i => i.id === id);
+    const idea = ideas.find(i => String(i.id) === String(id));
     if (!idea) return;
     currentEditingId = id;
     hasUnsavedChanges = false;
@@ -254,7 +259,7 @@ function closeModal() {
 async function deleteIdea(id) {
     if (!confirm(`¿Eliminar idea #${id}? Esta acción no se puede deshacer.`)) return;
 
-    const index = ideas.findIndex(i => i.id === id);
+    const index = ideas.findIndex(i => String(i.id) === String(id));
     if (index < 0) return;
     const [removed] = ideas.splice(index, 1);
 
@@ -272,7 +277,7 @@ async function deleteIdea(id) {
 
 async function saveIdea() {
     if (!currentEditingId) return;
-    const idea = ideas.find(i => i.id === currentEditingId);
+    const idea = ideas.find(i => String(i.id) === String(currentEditingId));
     if (!idea) return;
 
     for (const field of ['title', 'category', 'priority', 'gancho', 'source', 'verdict', 'analysis', 'status', 'errorNotes']) {
