@@ -373,3 +373,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
     .footer-left, .footer-right { width: 100%; }
     .footer-right .btn { flex: 1; }
 }
+
+/* Botón para pasar de etapa (secundario: Guardar es la acción principal) */
+.btn-advance { color: var(--stage); border-color: color-mix(in srgb, var(--stage) 55%, transparent); }
+.btn-advance:hover { color: var(--stage); border-color: var(--stage); background: color-mix(in srgb, var(--stage) 10%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--stage) 35%, transparent); }

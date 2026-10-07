@@ -44,6 +44,11 @@ function findOption(list, id) {
     return list.find(o => o.id === id) || { id, label: id, color: FALLBACK_COLOR };
 }
 
+// La prioridad la asigna el equipo en En Discusión; antes no aplica.
+function priorityOf(idea) {
+    return idea.status === 'initial' ? '' : idea.priority;
+}
+
 function stageIndex(status) {
     return STATUSES.findIndex(s => s.id === status);
 }
@@ -89,18 +94,18 @@ function normalizeIdea(raw) {
 }
 
 const INITIAL_IDEAS = [
-    ['001', 'La IA va a reemplazar a todos los ingenieros en 5 años', 'IA', 'high'],
-    ['002', 'El 90% de startups de IA fracasan en el primer año', 'Startups', 'high'],
-    ['003', 'Solo los fondos de VC grandes logran salidas de unicornios', 'Startups', 'high'],
-    ['004', 'La creatividad NO se puede automatizar con IA', 'IA', 'medium'],
-    ['005', 'Chile tiene ventaja competitiva en startups Deep Tech', 'Innovación', 'medium'],
-    ['006', 'El blockchain es más seguro que criptografía convencional', 'Tecnología', 'low'],
-    ['007', 'La sostenibilidad en tech cuesta 50% más en presupuesto', 'Innovación', 'medium'],
-    ['008', 'Machine Learning requiere mínimo 1 millón de datos', 'IA', 'high'],
-    ['009', 'Argentina es el nuevo hub de IA en Latinoamérica', 'Innovación', 'medium'],
-    ['010', 'El 80% de empleos desaparecerá en 20 años', 'IA', 'high'],
-    ['011', 'Los algoritmos de recomendación causan depresión en jóvenes', 'Tecnología', 'medium'],
-    ['012', 'La innovación en startups es 10x más rápida que en corporaciones', 'Innovación', 'high']
+    ['001', 'La IA va a reemplazar a todos los ingenieros en 5 años', 'IA'],
+    ['002', 'El 90% de startups de IA fracasan en el primer año', 'Startups'],
+    ['003', 'Solo los fondos de VC grandes logran salidas de unicornios', 'Startups'],
+    ['004', 'La creatividad NO se puede automatizar con IA', 'IA'],
+    ['005', 'Chile tiene ventaja competitiva en startups Deep Tech', 'Innovación'],
+    ['006', 'El blockchain es más seguro que criptografía convencional', 'Tecnología'],
+    ['007', 'La sostenibilidad en tech cuesta 50% más en presupuesto', 'Innovación'],
+    ['008', 'Machine Learning requiere mínimo 1 millón de datos', 'IA'],
+    ['009', 'Argentina es el nuevo hub de IA en Latinoamérica', 'Innovación'],
+    ['010', 'El 80% de empleos desaparecerá en 20 años', 'IA'],
+    ['011', 'Los algoritmos de recomendación causan depresión en jóvenes', 'Tecnología'],
+    ['012', 'La innovación en startups es 10x más rápida que en corporaciones', 'Innovación']
 ];
 
 // --- Requisitos para avanzar de etapa (validaciones de los Lineamientos) ---
@@ -225,7 +230,7 @@ async function loadIdeas() {
             ideas = data.map(normalizeIdea);
             showToast(`✓ Cargadas ${ideas.length} ideas desde Supabase`, 'success');
         } else {
-            ideas = INITIAL_IDEAS.map(([id, title, category, priority]) => blankIdea(id, title, category, priority, 'Sistema'));
+            ideas = INITIAL_IDEAS.map(([id, title, category]) => blankIdea(id, title, category, '', 'Sistema'));
             await supabaseCall('POST', TABLE, ideas);
             showToast(`✓ Inicializadas ${ideas.length} ideas en Supabase`, 'success');
         }
@@ -236,7 +241,7 @@ async function loadIdeas() {
         if (handleAuthError(error)) return;
         console.error('Error loading from Supabase:', error);
         showToast(`⚠️ Error conectando a Supabase, usando cache local. Detalle: ${error.message}`, 'warning', 15000);
-        ideas = (readCache() || INITIAL_IDEAS.map(([id, title, category, priority]) => blankIdea(id, title, category, priority, 'Sistema'))).map(normalizeIdea);
+        ideas = (readCache() || INITIAL_IDEAS.map(([id, title, category]) => blankIdea(id, title, category, '', 'Sistema'))).map(normalizeIdea);
         saveCache();
     }
     render();
@@ -355,11 +360,11 @@ function cardProgress(idea) {
 function renderContent() {
     const filtered = ideas.filter(idea => idea.status === currentTab && matchesSearch(idea));
     let html = filtered.map(idea => `
-        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0" style="--stage:${findOption(ALL_STATUSES, idea.status).color};--prio:${idea.priority ? findOption(PRIORITIES, idea.priority).color : FALLBACK_COLOR}">
+        <article class="card" data-id="${escapeHtml(idea.id)}" tabindex="0" style="--stage:${findOption(ALL_STATUSES, idea.status).color};--prio:${priorityOf(idea) ? findOption(PRIORITIES, idea.priority).color : FALLBACK_COLOR}">
             ${idea.status === 'discarded' ? `<button class="card-delete" data-id="${escapeHtml(idea.id)}" aria-label="Eliminar definitivamente" title="Eliminar definitivamente"><svg><use href="#i-trash"/></svg></button>` : ''}
             <div class="card-top">
                 <span class="card-id">#${escapeHtml(idea.id)}</span>
-                ${idea.priority ? chip(findOption(PRIORITIES, idea.priority), 'priority') : ''}
+                ${priorityOf(idea) ? chip(findOption(PRIORITIES, idea.priority), 'priority') : ''}
             </div>
             <div class="card-title ${idea.title ? '' : 'untitled'}">${escapeHtml(idea.title) || 'Sin título'}</div>
             <div class="card-tags">
@@ -658,8 +663,8 @@ function renderModalFooter(idea) {
     return `<div class="footer-left">${left}</div>
         <div class="footer-right">
             <button class="btn btn-ghost" data-action="close">Cancelar</button>
-            <button class="btn ${next ? 'btn-ghost' : 'btn-primary'}" data-action="save">Guardar</button>
-            ${next ? `<button class="btn btn-primary" data-action="advance">Pasar a ${escapeHtml(next.label)} →</button>` : ''}
+            ${next ? `<button class="btn btn-ghost btn-advance" data-action="advance" style="--stage:${next.color}">Pasar a ${escapeHtml(next.label)} →</button>` : ''}
+            <button class="btn btn-primary" data-action="save">Guardar</button>
         </div>`;
 }
 
@@ -805,6 +810,7 @@ async function deleteIdea(id) {
 async function persist(updated, successMsg) {
     const index = ideas.findIndex(i => String(i.id) === String(updated.id));
     if (index < 0) return false;
+    if (updated.status === 'initial') updated.priority = '';
     updated.last_edited_by = editorName();
     updated.last_edited_at = new Date().toISOString();
     ideas[index] = updated;
