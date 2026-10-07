@@ -584,22 +584,27 @@ const AI_STATUS_TEXT = {
     evaluando: 'Evaluando con IA…'
 };
 
-function scoreDots(value) {
-    return `<span class="dots" aria-label="${value} de 3">${[1, 2, 3].map(n => `<span class="dot ${n <= value ? 'on' : ''}"></span>`).join('')}</span>`;
+const SCORE_WORDS = { 1: 'Bajo', 2: 'Medio', 3: 'Alto' };
+
+function scorePill(value) {
+    return `<span class="mx-score s${value}"><b>${value}</b>/3</span>`;
 }
 
-// Tabla de la matriz; se vuelve a dibujar en vivo con el borrador del formulario.
+// Panel de la matriz; se vuelve a dibujar en vivo con el borrador del formulario.
 function matrixHtml(draft) {
     const m = matrixFor(draft, ideas);
     const level = findOption(PRIORITIES, m.level);
     const status = evaluatingIds.has(String(draft.id)) ? 'evaluando' : m.aiStatus;
-    const rows = m.criteria.map(c => `
-        <tr>
-            <td><span class="mx-name">${escapeHtml(c.label)}</span><span class="mx-weight">×${c.weight}</span></td>
-            <td>${scoreDots(c.value)}</td>
-            <td><span class="mx-origin ${c.origin}">${ORIGIN_LABELS[c.origin]}</span></td>
-            <td class="mx-reason">${escapeHtml(c.reason)}</td>
-        </tr>`).join('');
+    const tiles = m.criteria.map(c => `
+        <div class="mx-tile" title="${escapeHtml(c.label)}: ${escapeHtml(c.hint || '')}">
+            <div class="mx-tile-top"><span class="mx-name">${escapeHtml(c.short || c.label)}</span><span class="mx-weight">×${c.weight}</span></div>
+            ${scorePill(c.value)}
+            <div class="mx-tile-foot"><span class="mx-word">${SCORE_WORDS[c.value]}</span><span class="mx-origin ${c.origin}">${ORIGIN_LABELS[c.origin]}</span></div>
+        </div>`).join('');
+    const reasons = m.criteria.map(c => `<li><strong>${escapeHtml(c.short || c.label)}:</strong> ${escapeHtml(c.reason)}</li>`).join('')
+        + `<li><strong>Esfuerzo:</strong> ${escapeHtml(m.effort.reason)}</li>`
+        + (m.commercial ? `<li><strong>Comercial:</strong> ${escapeHtml(m.commercial.reason)}</li>` : '')
+        + (m.balance.factor < 1 ? `<li><strong>Equilibrio:</strong> ${escapeHtml(m.balance.reason)}</li>` : '');
     return `
         <div class="matrix-head">
             <div class="matrix-score" style="--c:${level.color}">
@@ -612,15 +617,16 @@ function matrixHtml(draft) {
             </div>
         </div>
         <div class="matrix-bar"><span style="width:${Math.max(2, Math.min(100, m.score))}%;--c:${level.color}"></span></div>
-        <div class="matrix-scroll"><table class="matrix">
-            <thead><tr><th>Criterio</th><th>Puntaje</th><th>Origen</th><th>Por qué</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table></div>
-        <div class="matrix-notes">
-            <div><strong>Esfuerzo:</strong> ${escapeHtml(m.effort.label)} (×${m.effort.factor}) <span class="mx-origin ${m.effort.origin}">${ORIGIN_LABELS[m.effort.origin]}</span> — ${escapeHtml(m.effort.reason)}</div>
-            ${m.balance.factor < 1 ? `<div><strong>Equilibrio:</strong> ×${m.balance.factor} — ${escapeHtml(m.balance.reason)}</div>` : ''}
-            <div class="commercial"><strong>Potencial comercial / institucional</strong> (no suma al puntaje): ${m.commercial ? `${scoreDots(m.commercial.value)} ${escapeHtml(m.commercial.reason)}` : '<em>se calcula con la IA</em>'}</div>
-        </div>`;
+        <div class="mx-grid">${tiles}</div>
+        <div class="mx-extras">
+            <div class="mx-extra"><span class="mx-extra-label">Esfuerzo</span><strong>${escapeHtml(m.effort.label.split(' (')[0])}</strong><span class="mx-extra-note">ajusta ×${m.effort.factor}</span><span class="mx-origin ${m.effort.origin}">${ORIGIN_LABELS[m.effort.origin]}</span></div>
+            <div class="mx-extra"><span class="mx-extra-label">Potencial comercial</span>${m.commercial ? `<strong>${SCORE_WORDS[m.commercial.value]} (${m.commercial.value}/3)</strong>` : '<strong>—</strong>'}<span class="mx-extra-note">no suma al puntaje</span></div>
+            ${m.balance.factor < 1 ? `<div class="mx-extra warn"><span class="mx-extra-label">Equilibrio</span><strong>×${m.balance.factor}</strong><span class="mx-extra-note">mismo autor repetido</span></div>` : ''}
+        </div>
+        <details class="mx-why">
+            <summary>Ver por qué de cada puntaje</summary>
+            <ul>${reasons}</ul>
+        </details>`;
 }
 
 function sectionDiscussion(idea, open) {

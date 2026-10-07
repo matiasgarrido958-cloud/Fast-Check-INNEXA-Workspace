@@ -39,11 +39,11 @@ window.LINEAMIENTOS = {
     // El puntaje se normaliza a 0–100, se ajusta por esfuerzo y equilibrio, y los cortes dan Alta/Media/Baja.
     MATRIX: {
         CRITERIA: [
-            { id: 'consecuencias', label: 'Consecuencias si se cree', weight: 3, source: 'ia',
+            { id: 'consecuencias', label: 'Consecuencias si se cree', short: 'Consecuencias', weight: 3, source: 'ia',
                 hint: 'Decisiones de emprendedores, inversión, empleo o políticas públicas que podría afectar.' },
             { id: 'circulacion', label: 'Circulación', weight: 2, source: 'auto',
                 hint: 'Plataformas distintas entre la afirmación y sus fuentes iniciales.' },
-            { id: 'relevancia', label: 'Relevancia (tema y emisor)', weight: 2, source: 'ia',
+            { id: 'relevancia', label: 'Relevancia (tema y emisor)', short: 'Relevancia', weight: 2, source: 'ia',
                 hint: 'Importancia para la innovación y tecnología en Chile; peso de quien lo dice.' },
             { id: 'verificabilidad', label: 'Verificabilidad', weight: 1, source: 'ia',
                 hint: 'Hecho concreto y comprobable (cifra, dato) vs. opinión o predicción.' },
