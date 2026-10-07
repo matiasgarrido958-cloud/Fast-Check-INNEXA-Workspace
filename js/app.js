@@ -1,4 +1,4 @@
-const { TABLE, SYNC_INTERVAL_MS } = window.APP_CONFIG;
+const { TABLE, SYNC_INTERVAL_MS, TEAM_EMAIL } = window.APP_CONFIG;
 const CACHE_KEY = 'fast-check-ideas';
 
 const STATUSES = [
@@ -183,7 +183,7 @@ function renderContent() {
 
 async function createNewIdea() {
     const maxId = Math.max(0, ...ideas.map(i => parseInt(i.id, 10) || 0));
-    const newIdea = blankIdea(String(maxId + 1).padStart(3, '0'), '', '', 'medium', currentUserEmail());
+    const newIdea = blankIdea(String(maxId + 1).padStart(3, '0'), '', '', 'medium', editorName());
     ideas.push(newIdea);
 
     try {
@@ -291,7 +291,7 @@ async function saveIdea() {
     for (const field of ['title', 'category', 'priority', 'gancho', 'source', 'verdict', 'analysis', 'status', 'errorNotes']) {
         idea[field] = document.getElementById(field).value;
     }
-    idea.last_edited_by = currentUserEmail();
+    idea.last_edited_by = editorName();
     idea.last_edited_at = new Date().toISOString();
     saveCache();
 
@@ -311,6 +311,11 @@ async function saveIdea() {
 
 // --- Sesión ---
 
+// Nombre que se guarda en last_edited_by y se muestra en el encabezado.
+function editorName() {
+    return TEAM_EMAIL ? 'Equipo' : currentUserEmail();
+}
+
 function showLogin(message = '') {
     connected = false;
     ideas = [];
@@ -322,13 +327,17 @@ function showLogin(message = '') {
     const errorBox = document.getElementById('loginError');
     errorBox.textContent = message;
     errorBox.hidden = !message;
-    document.getElementById('loginEmail').focus();
+    const emailInput = document.getElementById('loginEmail');
+    document.getElementById('loginEmailGroup').hidden = Boolean(TEAM_EMAIL);
+    emailInput.required = !TEAM_EMAIL;
+    if (TEAM_EMAIL) emailInput.value = TEAM_EMAIL;
+    document.getElementById(TEAM_EMAIL ? 'loginPassword' : 'loginEmail').focus();
 }
 
 function showApp() {
     document.getElementById('loginScreen').hidden = true;
     document.getElementById('appScreen').hidden = false;
-    document.getElementById('userEmail').textContent = currentUserEmail() || '';
+    document.getElementById('userEmail').textContent = editorName() || '';
     loadIdeas();
 }
 
@@ -347,13 +356,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     button.disabled = true;
     errorBox.hidden = true;
     try {
-        await signIn(document.getElementById('loginEmail').value.trim(), document.getElementById('loginPassword').value);
+        const email = TEAM_EMAIL || document.getElementById('loginEmail').value.trim();
+        await signIn(email, document.getElementById('loginPassword').value);
         document.getElementById('loginPassword').value = '';
         showApp();
     } catch (error) {
         console.error('Login error:', error);
         errorBox.textContent = error instanceof AuthError && error.status === 400
-            ? 'Correo o contraseña incorrectos.'
+            ? (TEAM_EMAIL ? 'Contraseña incorrecta.' : 'Correo o contraseña incorrectos.')
             : `No se pudo iniciar sesión: ${error.message}`;
         errorBox.hidden = false;
     } finally {

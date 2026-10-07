@@ -40,11 +40,16 @@ python3 -m http.server 8000
 
 ## Inicio de sesión
 
-Solo pueden entrar las cuentas creadas en Supabase (no hay registro público):
+El equipo comparte una sola cuenta y la página solo pide la contraseña
+(el correo está fijo en `TEAM_EMAIL` dentro de `js/config.js`):
 
-1. **Authentication → Sign In / Providers → Email**: desactiva *Allow new users to sign up*.
-2. **Authentication → Users → Add user → Create new user**: correo + contraseña, con *Auto Confirm User* marcado.
+1. **Authentication → Users → Add user → Create new user**: correo `equipo@fastcheck-innexa.com`,
+   la contraseña del equipo (mínimo 6 caracteres) y *Auto Confirm User* marcado.
+2. **Authentication → Sign In / Providers → Email**: desactiva *Allow new users to sign up*.
+
+Para cambiar la contraseña: **Authentication → Users → (el usuario) → Reset password / Update user**.
+Para usar cuentas individuales, deja `TEAM_EMAIL: ''` y la página pedirá correo y contraseña.
 3. Las políticas RLS de `schema.sql` solo permiten leer y escribir a usuarios autenticados,
    así que sin sesión la API no entrega ninguna idea aunque alguien tenga la publishable key.
 
-Para quitarle el acceso a alguien, bórralo en **Authentication → Users**.
+
