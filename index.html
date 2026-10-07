@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Check INNEXA — Workspace</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070b19'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%2300f0ff'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" id="themeCss" href="css/theme-institucional.css?v=202610072254">
+    <script>
+        // Aplica el tema guardado antes de pintar la página (evita parpadeo).
+        (function () {
+            var theme = 'institucional';
+            try { theme = localStorage.getItem('fast-check-theme') || theme; } catch (e) {}
+            if (theme !== 'cyber') theme = 'institucional';
+            document.documentElement.dataset.theme = theme;
+            document.getElementById('themeCss').href = 'css/theme-' + theme + '.css?v=202610072254';
+        })();
+    </script>
+</head>
+<body>
+    <!-- Capa decorativa de fondo: cuadrícula, circuitos y fragmentos de código -->
+    <div class="bg-fx" aria-hidden="true">
+        <div class="bg-grid"></div>
+        <div class="bg-aura a1"></div>
+        <div class="bg-aura a2"></div>
+        <div class="bg-aura a3"></div>
+        <pre class="bg-code c1">const verdict = await verify(claim);
+if (verdict.sources.length &lt; 2) {
+  flag(claim, 'insuficiente');
+}
+// node 0x08204F :: sync ok</pre>
+        <pre class="bg-code c2">SELECT id, status, verdict
+  FROM fast_check_ideas
+ WHERE priority = 'high'
+ ORDER BY last_edited_at DESC;</pre>
+        <pre class="bg-code c3">[FC-INNEXA] &gt; scan --claims
+  ▸ 0x01 parse ............ OK
+  ▸ 0x02 cross-check ...... OK
+  ▸ 0x03 publish .......... PENDING</pre>
+    </div>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 2 4 14h6.5L9 22l11-13h-7z"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></symbol>
+        <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="currentColor" d="M12 3.5a8.5 8.5 0 0 1 0 17z"/></symbol>
+        <symbol id="i-archive" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 4h18v4H3zM5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+    </svg>
+
+    <div class="login-screen" id="loginScreen" hidden>
+        <form class="login-card" id="loginForm">
+            <div class="sys-tag">// ACCESO RESTRINGIDO · NODE FC-01</div>
+            <div class="login-brand">
+                <img class="login-logo logo-light" src="assets/innexa-hub-logo-light.png" alt="INNEXA HUB UDLA">
+                <img class="login-logo logo-dark" src="assets/innexa-hub-logo-dark.png" alt="INNEXA HUB UDLA">
+                <div class="tagline">Innovación <span>·</span> Empresa <span>·</span> Territorio</div>
+            </div>
+            <h1><svg class="h1-bolt"><use href="#i-bolt"/></svg>Fast Check</h1>
+            <p class="lead">Workspace del equipo de verificación.</p>
+            <div class="form-group" id="loginEmailGroup">
+                <label class="form-label" for="loginEmail">Correo</label>
+                <input class="form-input" id="loginEmail" type="email" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="loginPassword">Contraseña</label>
+                <input class="form-input" id="loginPassword" type="password" autocomplete="current-password" required>
+            </div>
+            <p class="login-error" id="loginError" hidden></p>
+            <button class="btn btn-primary" type="submit" id="btnLogin">Entrar</button>
+            <div class="sys-tag right">SECURE_LINK · TLS · RLS ON</div>
+        </form>
+    </div>
+
+    <div id="appScreen" hidden>
+        <div class="topbar">
+            <div class="topbar-inner">
+                <div class="brand">
+                    <img class="brand-logo logo-light" src="assets/innexa-hub-logo-light.png" alt="INNEXA HUB UDLA">
+                    <img class="brand-logo logo-dark" src="assets/innexa-hub-logo-dark.png" alt="INNEXA HUB UDLA">
+                    <span class="brand-divider" aria-hidden="true"></span>
+                    <div>
+                        <div class="brand-name"><svg class="brand-bolt"><use href="#i-bolt"/></svg>Fast Check</div>
+                        <div class="brand-sub">Verification Workspace</div>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-ghost" id="btnTheme" title="Cambiar diseño"><svg><use href="#i-theme"/></svg><span class="theme-label" id="themeLabel"></span></button>
+                    <div class="user-chip"><span class="avatar" id="userAvatar"></span><span class="user-name" id="userEmail"></span></div>
+                    <button class="btn btn-ghost" id="btnLogout" title="Salir"><svg><use href="#i-logout"/></svg><span class="btn-logout-label">Salir</span></button>
+                </div>
+            </div>
+        </div>
+
+        <main class="container">
+            <div class="page-head">
+                <div>
+                    <div class="sys-tag"><span class="pulse"></span>SYS://FAST-CHECK/WORKSPACE <span class="sys-dim">· LIVE SYNC</span></div>
+                    <h1><span class="bracket">[</span> Tablero de verificación <span class="bracket">]</span></h1>
+                    <p id="summary"></p>
+                </div>
+                <div class="page-head-actions">
+                    <label class="search">
+                        <svg><use href="#i-search"/></svg>
+                        <input type="search" id="search" placeholder="Buscar idea o categoría…" aria-label="Buscar">
+                    </label>
+                    <button class="btn btn-bolt" id="btnNewIdea"><svg><use href="#i-plus"/></svg>Nueva idea</button>
+                </div>
+            </div>
+
+            <nav class="pipeline" id="tabs" aria-label="Etapas"></nav>
+            <div class="board-bar" id="boardBar"></div>
+            <div id="content"></div>
+        </main>
+
+        <footer class="inst-footer">
+            <div class="inst-footer-inner">
+                <span><strong>INNEXA HUB · UDLA</strong> — Innovación · Empresa · Territorio</span>
+                <span>Fast Check · Workspace de verificación</span>
+            </div>
+        </footer>
+
+        <footer class="sys-footer" aria-hidden="true">
+            <div class="sys-footer-inner">
+                <span>SYS_ID: FC-INNEXA-0x08204F</span>
+                <span class="data-line"></span>
+                <span>SUPABASE::fast_check_ideas</span>
+                <span class="data-line"></span>
+                <span><span class="pulse"></span>SYNC 3000ms</span>
+            </div>
+        </footer>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-eyebrow" id="modalEyebrow"></div>
+                    <h2 class="modal-title" id="modalTitle"></h2>
+                </div>
+                <button class="modal-close" id="btnCloseModal" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <div class="toast-stack" id="toasts"></div>
+
+    <script src="js/config.js?v=202610072254"></script>
+    <script src="js/lineamientos.js?v=202610072254"></script>
+    <script src="js/supabase.js?v=202610072254"></script>
+    <script src="js/prioridad.js?v=202610072254"></script>
+    <script src="js/app.js?v=202610072254"></script>
+</body>
+</html>
