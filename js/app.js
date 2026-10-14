@@ -771,7 +771,8 @@ function renderModalFooter(idea) {
     const left = idea.status === 'discarded'
         ? `<button class="btn btn-ghost" data-action="restore">↺ Restaurar a ${escapeHtml(findOption(STATUSES, idea.discarded_from || 'initial').label)}</button>`
         : `${idea.status !== 'published' ? '<button class="btn btn-ghost danger" data-action="discard">Descartar</button>' : ''}
-           ${prev ? `<button class="btn btn-ghost" data-action="back" title="Volver a ${escapeHtml(prev.label)}">← Volver</button>` : ''}`;
+           ${prev ? `<button class="btn btn-ghost" data-action="back" title="Volver a ${escapeHtml(prev.label)}">← Volver</button>` : ''}
+           ${stageIndex(idea.status) >= 2 ? '<button class="btn btn-ghost" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>' : ''}`;
     return `<div class="footer-left">${left}</div>
         <div class="footer-right">
             <button class="btn btn-ghost" data-action="close">Cancelar</button>
@@ -1105,6 +1106,12 @@ function handleModalAction(action) {
         case 'back': return moveIdea('back');
         case 'close': return closeModal();
         case 'restore': return restoreIdea();
+        case 'report': {
+            // Incluye lo escrito en el formulario aunque aún no se haya guardado.
+            const idea = currentIdea();
+            if (idea) openReport(readForm(idea), ideas);
+            return;
+        }
         case 'discard': {
             const panel = document.getElementById('discardPanel');
             panel.hidden = false;

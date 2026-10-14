@@ -15,6 +15,7 @@ js/config.js          URL y publishable key de Supabase
 js/lineamientos.js    Checklist, tipos de fuente y motivos de descarte
 js/supabase.js        Cliente mínimo de la API REST de Supabase
 js/prioridad.js       Matriz de priorización automática
+js/reporte.js         Reporte formal descargable de cada propuesta
 js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
 supabase/migracion-flujo-etapas.sql  Columnas del flujo por etapas
@@ -43,6 +44,16 @@ Las ideas que no siguen se **descartan** con un motivo (no se borran) y se puede
 Solo desde *Descartadas* se puede eliminar definitivamente.
 
 Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsable y revisor se escriben libremente (la página sugiere los nombres ya usados).
+
+## Reporte de la propuesta
+
+Desde **En Proceso** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**.
+Abre en una pestaña nueva un informe formal en formato A4 con toda la información de la idea:
+afirmación, evaluación y matriz de priorización, fuentes de verificación, veredicto y análisis,
+checklist de calidad y un espacio final para las observaciones y la firma del profesor.
+Incluye lo escrito en el formulario aunque todavía no se haya guardado. **Descargar PDF** abre el
+diálogo de impresión del navegador: elegir *Guardar como PDF*. Los campos vacíos aparecen como
+*No informado* para que se vea qué falta. El formato se edita en `js/reporte.js`.
 
 ## Matriz de priorización
 
