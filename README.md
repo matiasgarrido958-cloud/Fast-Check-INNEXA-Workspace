@@ -44,6 +44,7 @@ Retroceder siempre se puede.
 Las ideas que no siguen se **descartan** con un motivo (no se borran) y se pueden restaurar.
 Solo desde *Descartadas* se puede eliminar definitivamente.
 
+El checklist de En Proceso y de Pendiente Publicación se marca desde el botón **☑** de la tarjeta (se guarda al marcar).
 Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsable y revisor se escriben libremente (la página sugiere los nombres ya usados).
 
 ## Investigación profunda IA

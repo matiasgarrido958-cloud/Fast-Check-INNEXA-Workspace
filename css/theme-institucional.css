@@ -358,3 +358,12 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
 .research-summary { display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .btn-research { color: var(--blue); border-color: #c7d4f0; }
 .btn-research:hover { background: #eef3ff; color: var(--blue); }
+
+/* Checklist desde la tarjeta */
+.card-check { margin-left: auto; font: 700 11px var(--font-body); color: var(--muted); background: #f4f6fa; border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.card-check:hover { color: var(--navy); border-color: #c7d4f0; background: #eef3ff; }
+.card-check.done { color: #15803d; background: #ecfdf3; border-color: #bbf7d0; }
+.check-pop { position: fixed; z-index: 1200; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.check-pop-head { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--navy); }
+.check-pop-head .modal-close { margin-left: auto; }
+.check-pop-title { font-size: 12px; color: var(--muted); margin-bottom: 2px; }

@@ -156,7 +156,7 @@ function requirementsFor(idea, target) {
             if (!idea.verdict) missing.push('Elige un veredicto.');
             if (!idea.analysis.trim()) missing.push('Escribe la explicación concisa.');
             const k = unchecked(L.CHECKLIST_RESEARCH);
-            if (k) missing.push(`Completa el checklist de investigación (faltan ${k}).`);
+            if (k) missing.push(`Completa el checklist de investigación (faltan ${k}) con el botón ☑ de la tarjeta.`);
             break;
         }
         case 'published': {
@@ -167,7 +167,7 @@ function requirementsFor(idea, target) {
             if (!idea.reviewed_by) missing.push('Indica quién revisó.');
             else if (samePerson(idea.reviewed_by, idea.owner)) missing.push('La revisión debe hacerla una persona distinta del responsable.');
             const k = unchecked(L.CHECKLIST_PUBLISH);
-            if (k) missing.push(`Completa el checklist de publicación (faltan ${k}).`);
+            if (k) missing.push(`Completa el checklist de publicación (faltan ${k}) con el botón ☑ de la tarjeta.`);
             if (!idea.approved_by_team) missing.push('Falta la aprobación del equipo.');
             break;
         }
@@ -260,7 +260,7 @@ async function loadIdeas() {
 // Sincronización con Supabase (polling). Se pausa mientras se edita una idea
 // para no pisar los cambios del formulario abierto.
 setInterval(async () => {
-    if (!connected || currentEditingId) return;
+    if (!connected || currentEditingId || checklistOpenId) return;
     try {
         const data = await supabaseCall('GET', `${TABLE}?order=id`);
         if (!Array.isArray(data)) return;
@@ -406,6 +406,7 @@ function renderContent() {
             <div class="card-foot">
                 <span class="avatar sm">${escapeHtml(initials(idea.last_edited_by))}</span>
                 <span><strong>${escapeHtml(idea.last_edited_by || 'Usuario')}</strong> · ${escapeHtml(timeAgo(idea.last_edited_at))}</span>
+                ${checklistButton(idea)}
             </div>
         </article>
     `).join('');
@@ -423,6 +424,13 @@ function renderContent() {
         });
     });
 
+    document.querySelectorAll('.card-check').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openChecklist(btn.getAttribute('data-id'), btn);
+        });
+    });
+
     document.querySelectorAll('.card').forEach(card => {
         card.addEventListener('click', () => openModal(card.getAttribute('data-id')));
         card.addEventListener('keydown', (e) => {
@@ -430,6 +438,87 @@ function renderContent() {
         });
     });
 }
+
+// --- Checklist desde la tarjeta (En Proceso y Pendiente Publicación) ---
+
+const CHECKLISTS = {
+    working: { title: 'Checklist de investigación', list: L.CHECKLIST_RESEARCH },
+    pending: { title: 'Checklist de publicación', list: L.CHECKLIST_PUBLISH }
+};
+let checklistOpenId = null;
+
+function checklistButton(idea) {
+    const def = CHECKLISTS[idea.status];
+    if (!def) return '';
+    const done = def.list.filter(item => idea.checklist[item.id]).length;
+    const complete = done === def.list.length;
+    return `<button type="button" class="card-check ${complete ? 'done' : ''}" data-id="${escapeHtml(idea.id)}" title="${escapeHtml(def.title)}">☑ ${done}/${def.list.length}</button>`;
+}
+
+function renderChecklistPopover(idea) {
+    const def = CHECKLISTS[idea.status];
+    const done = def.list.filter(item => idea.checklist[item.id]).length;
+    return `<div class="check-pop-head">
+            <strong>${escapeHtml(def.title)}</strong>
+            <span class="checklist-count">${done}/${def.list.length}</span>
+            <button type="button" class="modal-close" data-close-check aria-label="Cerrar">×</button>
+        </div>
+        <div class="check-pop-title">#${escapeHtml(idea.id)} · ${escapeHtml(idea.title || 'Sin título')}</div>
+        ${def.list.map(item => `<label class="check"><input type="checkbox" data-item="${escapeHtml(item.id)}" ${idea.checklist[item.id] ? 'checked' : ''}><span>${escapeHtml(item.label)}</span></label>`).join('')}`;
+}
+
+function openChecklist(id, anchor) {
+    const idea = ideas.find(i => String(i.id) === String(id));
+    if (!idea || !CHECKLISTS[idea.status]) return;
+    const pop = document.getElementById('checkPop');
+    checklistOpenId = idea.id;
+    pop.innerHTML = renderChecklistPopover(idea);
+    pop.hidden = false;
+    // Bajo el botón, sin salirse de la pantalla.
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(380, window.innerWidth - 32);
+    pop.style.width = `${width}px`;
+    pop.style.left = `${Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16))}px`;
+    const below = rect.bottom + 8;
+    pop.style.top = `${below + pop.offsetHeight > window.innerHeight - 16 ? Math.max(16, rect.top - pop.offsetHeight - 8) : below}px`;
+}
+
+function closeChecklist() {
+    checklistOpenId = null;
+    document.getElementById('checkPop').hidden = true;
+}
+
+async function toggleChecklistItem(itemId, checked) {
+    const idea = ideas.find(i => String(i.id) === String(checklistOpenId));
+    if (!idea) return;
+    const updated = JSON.parse(JSON.stringify(idea));
+    updated.checklist[itemId] = checked;
+    const saving = persist(updated, '');
+    document.getElementById('checkPop').innerHTML = renderChecklistPopover(updated);
+    render();
+    await saving;
+}
+
+function setupChecklistPopover() {
+    const pop = document.getElementById('checkPop');
+    pop.addEventListener('change', (e) => {
+        const box = e.target.closest('input[data-item]');
+        if (box) toggleChecklistItem(box.getAttribute('data-item'), box.checked);
+    });
+    pop.addEventListener('click', (e) => {
+        if (e.target.closest('[data-close-check]')) closeChecklist();
+    });
+    document.addEventListener('click', (e) => {
+        if (checklistOpenId && !pop.contains(e.target) && !e.target.closest('.card-check')) closeChecklist();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && checklistOpenId) closeChecklist();
+    });
+    window.addEventListener('resize', closeChecklist);
+    document.addEventListener('scroll', closeChecklist, true);
+}
+
+setupChecklistPopover();
 
 async function createNewIdea() {
     const maxId = Math.max(0, ...ideas.map(i => parseInt(i.id, 10) || 0));
@@ -497,14 +586,6 @@ function field(id, label, value, { type = 'text', placeholder = '', textarea = f
 
 function checkbox(id, label, checked, attrs = '') {
     return `<label class="check"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''} ${attrs}><span>${escapeHtml(label)}</span></label>`;
-}
-
-function checklistHtml(list, idea) {
-    const done = list.filter(item => idea.checklist[item.id]).length;
-    return `<div class="checklist">
-        <div class="checklist-head">Checklist <span class="checklist-count">${done}/${list.length}</span></div>
-        ${list.map(item => checkbox(`ck-${item.id}`, item.label, idea.checklist[item.id], 'data-check="1"')).join('')}
-    </div>`;
 }
 
 function initialSourceRow(src = {}) {
@@ -696,7 +777,6 @@ function sectionResearch(idea, open) {
         </div>
         ${field('analysis', 'Explicación concisa', idea.analysis, { textarea: true, rows: 110, placeholder: 'Qué dice la evidencia y por qué el veredicto.' })}
         ${field('missing_context', 'Contexto que falta', idea.missing_context, { textarea: true, placeholder: 'Lo que la afirmación omite o altera.' })}
-        ${checklistHtml(L.CHECKLIST_RESEARCH, idea)}
     `, stageIndex(idea.status) > 2);
 }
 
@@ -717,7 +797,6 @@ function sectionPublish(idea, open) {
                 ${checkbox('approved_by_team', 'El equipo aprobó la publicación', idea.approved_by_team)}
             </div>
         </div>
-        ${checklistHtml(L.CHECKLIST_PUBLISH, idea)}
     `, stageIndex(idea.status) > 3);
 }
 
@@ -986,7 +1065,7 @@ async function persist(updated, successMsg) {
     saveCache();
     try {
         await supabaseCall('PATCH', `${TABLE}?id=eq.${encodeURIComponent(updated.id)}`, updated);
-        showToast(successMsg, 'success');
+        if (successMsg) showToast(successMsg, 'success');
         return true;
     } catch (error) {
         if (handleAuthError(error)) return false;
