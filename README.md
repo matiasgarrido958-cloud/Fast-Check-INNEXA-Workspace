@@ -16,6 +16,7 @@ js/lineamientos.js    Checklist, tipos de fuente y motivos de descarte
 js/supabase.js        Cliente mínimo de la API REST de Supabase
 js/prioridad.js       Matriz de priorización automática
 js/reporte.js         Reporte formal descargable de cada propuesta
+js/investigacion.js   Investigación profunda IA: prompt e importación del informe
 js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
 supabase/migracion-flujo-etapas.sql  Columnas del flujo por etapas
@@ -44,6 +45,22 @@ Las ideas que no siguen se **descartan** con un motivo (no se borran) y se puede
 Solo desde *Descartadas* se puede eliminar definitivamente.
 
 Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsable y revisor se escriben libremente (la página sugiere los nombres ya usados).
+
+## Investigación profunda IA
+
+En **Ideas Iniciales**, el botón **✨ Investigación profunda IA** abre un panel con tres pasos:
+
+1. **Copiar el prompt**: incluye la afirmación y lo que ya se sabe de ella. Se usa en Claude u otra IA.
+   Pide un informe (TL;DR, quién lo dijo, fuentes, detalles, advertencias) y, al final, un bloque
+   ` ```json ` con un formato fijo. Si ya existe un informe, el mismo prompt sirve para convertirlo.
+2. **Pegar la respuesta completa** de la IA.
+3. **Indicar el responsable** (requisito para En Proceso).
+
+*Revisar respuesta* muestra qué se leyó y hasta qué etapa llegará; *Aplicar y avanzar* completa la idea
+y la mueve sola por las etapas cuyos requisitos se cumplan, hasta **En Proceso**. La afirmación escrita
+por el equipo no se reemplaza, y el checklist de investigación no se marca solo: el equipo debe
+confirmar que cada cifra se comprobó en su fuente original. Las advertencias del informe quedan en
+*Contexto que falta*.
 
 ## Reporte de la propuesta
 

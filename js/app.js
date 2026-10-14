@@ -757,6 +757,7 @@ function renderModalBody(idea) {
     const discarded = idea.status === 'discarded';
     let html = '<div class="req-box" id="reqBox"></div>' + peopleDatalist();
     html += sectionDiscard(idea);
+    if (idea.status === 'initial') html += researchPanelHtml(idea);
     html += sectionClaim(idea, i === 0);
     if (i >= 1 || discarded) html += sectionDiscussion(idea, i === 1);
     if (i >= 2) html += sectionResearch(idea, i === 2);
@@ -771,6 +772,7 @@ function renderModalFooter(idea) {
     const left = idea.status === 'discarded'
         ? `<button class="btn btn-ghost" data-action="restore">↺ Restaurar a ${escapeHtml(findOption(STATUSES, idea.discarded_from || 'initial').label)}</button>`
         : `${idea.status !== 'published' ? '<button class="btn btn-ghost danger" data-action="discard">Descartar</button>' : ''}
+           ${idea.status === 'initial' ? '<button class="btn btn-ghost btn-research" data-action="research-open" title="Completar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>' : ''}
            ${prev ? `<button class="btn btn-ghost" data-action="back" title="Volver a ${escapeHtml(prev.label)}">← Volver</button>` : ''}
            ${stageIndex(idea.status) >= 2 ? '<button class="btn btn-ghost" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>' : ''}`;
     return `<div class="footer-left">${left}</div>
@@ -1033,6 +1035,61 @@ async function moveIdea(direction) {
     }
 }
 
+// --- Investigación profunda IA (ver js/investigacion.js) ---
+
+async function copyResearchPrompt() {
+    const box = document.getElementById('researchPrompt');
+    try {
+        await navigator.clipboard.writeText(box.value);
+    } catch (e) {
+        box.select();
+        document.execCommand('copy');
+    }
+    showToast('✓ Prompt copiado', 'success');
+}
+
+// Lee la respuesta pegada y calcula cómo quedaría la idea. Devuelve null si hay error.
+function readResearch() {
+    const idea = currentIdea();
+    const result = document.getElementById('researchResult');
+    const text = document.getElementById('researchText').value.trim();
+    if (!idea) return null;
+    try {
+        if (!text) throw new Error('Pega primero la respuesta de la IA.');
+        const research = parseResearch(text);
+        const merged = mergeResearch(readForm(idea), research, document.getElementById('researchOwner').value.trim());
+        const outcome = advanceResearch(merged);
+        result.innerHTML = researchPreviewHtml(research, merged, outcome);
+        return { merged, outcome };
+    } catch (error) {
+        result.innerHTML = `<div class="req missing"><strong>No se pudo leer la respuesta.</strong><div>${escapeHtml(error.message)}</div></div>`;
+        document.getElementById('researchConfirm').hidden = true;
+        return null;
+    }
+}
+
+function previewResearch() {
+    if (readResearch()) document.getElementById('researchConfirm').hidden = false;
+}
+
+async function applyResearch() {
+    const read = readResearch();
+    if (!read) return;
+    const { merged, outcome } = read;
+    const stage = findOption(STATUSES, outcome.status);
+    merged.status = outcome.status;
+    await persist(merged, outcome.missing.length
+        ? `✓ Investigación aplicada. Quedó en ${stage.label}: revisa lo que falta.`
+        : '✓ Investigación aplicada. La idea pasó a En Proceso.');
+    currentTab = outcome.status;
+    finishEditing();
+    openModal(merged.id);
+    if (outcome.status !== 'initial' && aiStatusOf(merged) !== 'ok') {
+        autoEvalTried.add(String(merged.id));
+        runAiEvaluation(merged.id, { silent: true });
+    }
+}
+
 async function discardIdea() {
     const idea = currentIdea();
     if (!idea) return;
@@ -1123,6 +1180,22 @@ function handleModalAction(action) {
             document.getElementById('discardPanel').hidden = true;
             return;
         case 'discard-confirm': return discardIdea();
+        case 'research-open': {
+            const idea = currentIdea();
+            const panel = document.getElementById('researchPanel');
+            if (!idea || !panel) return;
+            document.getElementById('researchPrompt').value = buildResearchPrompt(readForm(idea));
+            panel.hidden = false;
+            document.getElementById('modalBody').scrollTop = 0;
+            document.getElementById('researchText').focus();
+            return;
+        }
+        case 'research-cancel':
+            document.getElementById('researchPanel').hidden = true;
+            return;
+        case 'research-copy': return copyResearchPrompt();
+        case 'research-preview': return previewResearch();
+        case 'research-confirm': return applyResearch();
     }
 }
 

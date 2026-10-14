@@ -439,3 +439,10 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
     .mx-tile .mx-word { display: none; }
     .mx-tile .mx-name { white-space: nowrap; overflow-wrap: normal; }
 }
+
+/* Investigación profunda IA (Ideas Iniciales) */
+.research-panel { border: 1px solid rgba(0, 240, 255, 0.45); background: rgba(0, 240, 255, 0.05); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.research-prompt { font-family: var(--font-mono); font-size: 12px; min-height: 140px; }
+.research-summary { display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; padding: 11px 14px; border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 8px; }
+.btn-research { color: var(--cyan); border-color: rgba(0, 240, 255, 0.45); }
+.btn-research:hover { background: rgba(0, 240, 255, 0.08); color: var(--cyan); }
