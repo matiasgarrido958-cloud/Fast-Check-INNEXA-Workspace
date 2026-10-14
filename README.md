@@ -67,7 +67,7 @@ confirmar que cada cifra se comprobó en su fuente original. Las advertencias de
 
 Desde **En Proceso** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**, arriba a la derecha del formulario.
 Abre en una pestaña nueva un informe formal en formato A4 con toda la información de la idea:
-afirmación, evaluación y matriz de priorización, fuentes de verificación, veredicto y análisis,
+afirmación, fuentes de verificación, veredicto y análisis,
 veredicto y análisis. Las fuentes de verificación van en una tabla compacta.
 Incluye lo escrito en el formulario aunque todavía no se haya guardado. **Descargar PDF** abre el
 diálogo de impresión del navegador: elegir *Guardar como PDF*. Los campos vacíos aparecen como

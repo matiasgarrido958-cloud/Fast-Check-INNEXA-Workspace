@@ -5,8 +5,7 @@
 // Usa las constantes y funciones globales de app.js y prioridad.js.
 
 const REPORT_COLORS = {
-    verdadero: '#15803d', falso: '#c81e1e', 'engañoso': '#c2410c', depende: '#a16207', insuficiente: '#64748b',
-    high: '#c81e1e', medium: '#d9620b', low: '#64748b'
+    verdadero: '#15803d', falso: '#c81e1e', 'engañoso': '#c2410c', depende: '#a16207', insuficiente: '#64748b'
 };
 
 function reportText(value) {
@@ -39,10 +38,6 @@ function reportDate(value, withTime = false) {
     return date.toLocaleDateString('es-CL', options);
 }
 
-function reportMark(ok) {
-    return ok ? '<span class="mark ok">✓ Sí</span>' : '<span class="mark no">✗ No</span>';
-}
-
 function reportBadge(option, colorKey) {
     if (!option) return '<span class="na">Sin definir</span>';
     const color = REPORT_COLORS[colorKey] || '#334155';
@@ -63,11 +58,8 @@ function reportFileName(idea) {
     return `Propuesta Fast Check ${idea.id} - ${slug}`;
 }
 
-function buildReportHtml(idea, allIdeas) {
+function buildReportHtml(idea) {
     const stage = findOption(ALL_STATUSES, idea.status);
-    const m = matrixFor(idea, allIdeas);
-    const priorityId = idea.status === 'discussion' ? effectivePriority(idea, m) : idea.priority;
-    const priority = priorityId ? findOption(PRIORITIES, priorityId) : null;
     const verdict = idea.verdict ? findOption(VERDICTS, idea.verdict) : null;
     const now = new Date();
     const logo = new URL('assets/innexa-hub-logo-light.png', window.location.href).href;
@@ -92,48 +84,7 @@ function buildReportHtml(idea, allIdeas) {
             ? `<ol class="refs">${initialSources.map(s => `<li>${reportLink(s.ref)}</li>`).join('')}</ol>`
             : '<p class="na">No informado</p>'}`;
 
-    // 2 · Evaluación y priorización
-    const criteriaRows = m.criteria.map(c => `<tr>
-            <td><strong>${escapeHtml(c.label)}</strong></td>
-            <td class="c">×${c.weight}</td>
-            <td class="c"><strong>${c.value}</strong>/3</td>
-            <td>${escapeHtml(c.reason || '')}</td>
-        </tr>`).join('');
-    const extraRows = [
-        ['Esfuerzo estimado', escapeHtml(m.effort.label), `multiplica ×${m.effort.factor}`, m.effort.reason],
-        ['Verificabilidad', `${m.verifiability.value}/3`, 'no suma', m.verifiability.reason],
-        m.commercial ? ['Potencial comercial', `${m.commercial.value}/3`, 'no suma', m.commercial.reason] : null,
-        m.balance.factor < 1 ? ['Equilibrio', `×${m.balance.factor}`, 'multiplica', m.balance.reason] : null
-    ].filter(Boolean).map(([name, value, effect, reason]) => `<tr>
-            <td><strong>${escapeHtml(name)}</strong></td>
-            <td class="c">${escapeHtml(effect)}</td>
-            <td class="c"><strong>${value}</strong></td>
-            <td>${escapeHtml(reason || '')}</td>
-        </tr>`).join('');
-    const score = idea.status === 'discussion' || idea.priority_score == null ? m.score : idea.priority_score;
-    const evaluation = `
-        <h3>Filtros del equipo</h3>
-        ${reportRows([
-            ['Dentro de las áreas de cobertura', reportMark(idea.in_coverage)],
-            ['Es verificable (no es opinión ni especulación)', reportMark(idea.is_verifiable)],
-            ['Circula o tiene un riesgo claro', reportMark(idea.circulates)]
-        ])}
-        <div class="keep">
-        <h3>Matriz de priorización</h3>
-        <div class="score-line">
-            <span class="score"><b>${score}</b>/100</span>
-            ${reportBadge(priority, priorityId)}
-            <span class="muted">${m.aiStatus === 'ok' ? `Evaluada con IA${m.model ? ` (${escapeHtml(m.model)})` : ''}` : 'Valores de respaldo automático (sin evaluación de IA vigente)'}${m.capped ? ' · tope por baja circulación' : ''}</span>
-        </div>
-        <table class="grid">
-            <thead><tr><th>Criterio</th><th class="c">Peso</th><th class="c">Puntaje</th><th>Fundamento</th></tr></thead>
-            <tbody>${criteriaRows}${extraRows}</tbody>
-        </table>
-        </div>
-        ${idea.priority_override ? `<p><strong>Prioridad ajustada por el equipo</strong> a ${escapeHtml(findOption(PRIORITIES, idea.priority_override).label)}. Motivo: ${reportText(idea.priority_override_reason)}</p>` : ''}
-        ${m.alerts.length ? `<div class="alert"><strong>Señales de alerta detectadas</strong><ul>${m.alerts.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul></div>` : ''}`;
-
-    // 3 · Investigación
+    // 2 · Investigación
     const sources = idea.sources.filter(s => Object.values(s).some(v => String(v || '').trim()));
     const stanceCount = id => sources.filter(s => s.stance === id).length;
     const typeShort = id => label(L.SOURCE_TYPES, id).replace(/\s*★+$/, '');
@@ -156,7 +107,7 @@ function buildReportHtml(idea, allIdeas) {
         ${sourcesHtml}
         ${idea.single_source_exception ? `<h3>Excepción de fuente única</h3>${reportParagraphs(idea.single_source_exception)}` : ''}`;
 
-    // 4 · Veredicto y análisis
+    // 3 · Veredicto y análisis
     const conclusion = `
         <div class="verdict">
             <span class="verdict-label">Veredicto propuesto</span>
@@ -170,9 +121,8 @@ function buildReportHtml(idea, allIdeas) {
 
     const sections = [
         reportSection(1, 'La afirmación', claim),
-        reportSection(2, 'Evaluación y priorización', evaluation),
-        reportSection(3, 'Investigación', research),
-        reportSection(4, 'Veredicto y análisis', conclusion)
+        reportSection(2, 'Investigación', research),
+        reportSection(3, 'Veredicto y análisis', conclusion)
     ];
 
     const title = reportFileName(idea);
@@ -218,15 +168,8 @@ function buildReportHtml(idea, allIdeas) {
     .grid th { background: #eef2f8; font: 700 8.5pt Arial, sans-serif; text-align: left; text-transform: uppercase; letter-spacing: .04em; color: #0B2A6F; }
     .grid .c, .grid th.c { text-align: center; white-space: nowrap; }
     .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1.5px solid var(--c); color: var(--c); font: 700 9.5pt Arial, sans-serif; }
-    .mark { font: 700 9.5pt Arial, sans-serif; }
-    .mark.ok { color: #15803d; } .mark.no { color: #c81e1e; }
     .na { color: #94a3b8; font-style: italic; }
     .muted { color: #5b6b86; font-size: 9.5pt; }
-    .score-line { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-    .score { font: 9pt Arial, sans-serif; color: #5b6b86; } .score b { font-size: 18pt; color: #0B2A6F; }
-    .alert { margin-top: 8px; padding: 8px 12px; border: 1px solid #f5c2a0; background: #fff7ed; border-radius: 6px; font-size: 9.5pt; }
-    .alert ul { margin: 4px 0 0; padding-left: 18px; }
-    .keep { break-inside: avoid; }
     .sources td { font-size: 9pt; }
     .sources td:first-child { width: 30px; font: 700 9pt Arial, sans-serif; color: #F28C28; }
     .sources td:nth-child(3), .sources td:nth-child(4) { width: 17%; }
@@ -266,7 +209,7 @@ function buildReportHtml(idea, allIdeas) {
     <div class="summary">
         <div><small>Etapa actual</small>${escapeHtml(stage.label)}</div>
         <div><small>Categoría</small>${reportText(idea.category)}</div>
-        <div><small>Prioridad</small>${priority ? escapeHtml(priority.label) : '<span class="na">Sin definir</span>'}</div>
+        <div><small>Fecha de la afirmación</small>${reportText(reportDate(idea.claim_date))}</div>
         <div><small>Responsable</small>${reportText(idea.owner)}</div>
         <div><small>Veredicto propuesto</small>${verdict ? escapeHtml(verdict.label) : '<span class="na">Pendiente</span>'}</div>
         <div><small>Última edición</small>${escapeHtml(reportDate(idea.last_edited_at) || '—')}</div>
@@ -280,13 +223,13 @@ function buildReportHtml(idea, allIdeas) {
 }
 
 // Abre el reporte en una pestaña nueva. Debe llamarse desde un clic (bloqueador de ventanas).
-function openReport(idea, allIdeas) {
+function openReport(idea) {
     const win = window.open('', '_blank');
     if (!win) {
         showToast('⚠️ El navegador bloqueó la ventana del reporte. Permite ventanas emergentes para esta página.', 'warning', 8000);
         return;
     }
     win.document.open();
-    win.document.write(buildReportHtml(idea, allIdeas));
+    win.document.write(buildReportHtml(idea));
     win.document.close();
 }

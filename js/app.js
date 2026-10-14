@@ -1259,7 +1259,7 @@ function handleModalAction(action) {
         case 'report': {
             // Incluye lo escrito en el formulario aunque aún no se haya guardado.
             const idea = currentIdea();
-            if (idea) openReport(readForm(idea), ideas);
+            if (idea) openReport(readForm(idea));
             return;
         }
         case 'discard': {
