@@ -136,18 +136,19 @@ function buildReportHtml(idea, allIdeas) {
     // 3 · Investigación
     const sources = idea.sources.filter(s => Object.values(s).some(v => String(v || '').trim()));
     const stanceCount = id => sources.filter(s => s.stance === id).length;
-    const sourcesHtml = sources.length ? sources.map((s, i) => `
-        <div class="source">
-            <div class="source-head"><span class="source-num">[${i + 1}]</span> <strong>${reportText(s.title)}</strong></div>
-            ${reportRows([
-                ['Autor / institución', reportText(s.author)],
-                ['Año', reportText(s.year)],
-                ['Enlace', reportLink(s.url)],
-                ['Tipo de fuente', reportText(label(L.SOURCE_TYPES, s.type))],
-                ['Postura', reportText(label(L.SOURCE_STANCES, s.stance))],
-                ['Hallazgos y limitaciones', reportText(s.notes)]
-            ])}
-        </div>`).join('') : '<p class="na">Aún no se registran fuentes de verificación.</p>';
+    const typeShort = id => label(L.SOURCE_TYPES, id).replace(/\s*★+$/, '');
+    const sourcesHtml = sources.length ? `<table class="grid sources">
+            <thead><tr><th class="c">N°</th><th>Fuente</th><th>Tipo</th><th>Postura</th></tr></thead>
+            <tbody>${sources.map((s, i) => `<tr>
+                <td class="c">${i + 1}</td>
+                <td><strong>${reportText(s.title)}</strong>
+                    <div class="src-meta">${[s.author, s.year].map(v => String(v || '').trim()).filter(Boolean).map(escapeHtml).join(' · ')}</div>
+                    ${s.url ? `<div class="src-link">${reportLink(s.url)}</div>` : ''}
+                    ${s.notes ? `<div class="src-notes">${escapeHtml(s.notes)}</div>` : ''}</td>
+                <td>${reportText(typeShort(s.type))}</td>
+                <td>${reportText(label(L.SOURCE_STANCES, s.stance))}</td>
+            </tr>`).join('')}</tbody>
+        </table>` : '<p class="na">Aún no se registran fuentes de verificación.</p>';
     const research = `
         <h3>Fuentes de verificación</h3>
         <p class="muted">${sources.length} fuente(s) registrada(s) · mínimo requerido: ${L.MIN_VERIFICATION_SOURCES} independientes ·
@@ -167,42 +168,12 @@ function buildReportHtml(idea, allIdeas) {
         <h3>Contexto que falta</h3>
         ${reportParagraphs(idea.missing_context)}`;
 
-    // 5 · Control de calidad
-    const checklist = list => `<table class="grid check">
-            <tbody>${list.map(item => `<tr><td class="c box">${idea.checklist[item.id] ? '☑' : '☐'}</td><td>${escapeHtml(item.label)}</td></tr>`).join('')}</tbody>
-        </table>`;
-    const researchDone = L.CHECKLIST_RESEARCH.filter(item => idea.checklist[item.id]).length;
-    let quality = `<p class="muted">Checklist de investigación: ${researchDone} de ${L.CHECKLIST_RESEARCH.length} puntos cumplidos.</p>${checklist(L.CHECKLIST_RESEARCH)}`;
-
-    let number = 5;
     const sections = [
         reportSection(1, 'La afirmación', claim),
         reportSection(2, 'Evaluación y priorización', evaluation),
         reportSection(3, 'Investigación', research),
         reportSection(4, 'Veredicto y análisis', conclusion)
     ];
-    if (stageIndex(idea.status) >= 3) {
-        quality += `<h3>Propuesta de publicación</h3>
-            ${reportRows([
-                ['Hook', reportText(idea.hook)],
-                ['Puntos clave', reportText(idea.key_points)],
-                ['Diseño', reportLink(idea.design_url)],
-                ['Revisado por', reportText(idea.reviewed_by)],
-                ['Aprobación del equipo', reportMark(idea.approved_by_team)]
-            ])}
-            ${checklist(L.CHECKLIST_PUBLISH)}`;
-    }
-    sections.push(reportSection(number++, 'Control de calidad', quality));
-    sections.push(reportSection(number, 'Revisión del profesor', `
-        <p class="muted">Espacio para observaciones, correcciones y decisión.</p>
-        <div class="lines">${'<div></div>'.repeat(7)}</div>
-        <table class="grid decision"><tbody><tr>
-            <td>☐ Aprobada</td><td>☐ Aprobada con observaciones</td><td>☐ Requiere cambios</td>
-        </tr></tbody></table>
-        <div class="signatures">
-            <div><span></span>Nombre y firma del profesor</div>
-            <div><span></span>Fecha</div>
-        </div>`));
 
     const title = reportFileName(idea);
     return `<!DOCTYPE html>
@@ -246,7 +217,6 @@ function buildReportHtml(idea, allIdeas) {
     .grid th, .grid td { border: 1px solid #d5dce8; padding: 6px 8px; vertical-align: top; font-size: 9.5pt; }
     .grid th { background: #eef2f8; font: 700 8.5pt Arial, sans-serif; text-align: left; text-transform: uppercase; letter-spacing: .04em; color: #0B2A6F; }
     .grid .c, .grid th.c { text-align: center; white-space: nowrap; }
-    .check .box { width: 32px; font-size: 13pt; line-height: 1; }
     .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1.5px solid var(--c); color: var(--c); font: 700 9.5pt Arial, sans-serif; }
     .mark { font: 700 9.5pt Arial, sans-serif; }
     .mark.ok { color: #15803d; } .mark.no { color: #c81e1e; }
@@ -256,17 +226,16 @@ function buildReportHtml(idea, allIdeas) {
     .score { font: 9pt Arial, sans-serif; color: #5b6b86; } .score b { font-size: 18pt; color: #0B2A6F; }
     .alert { margin-top: 8px; padding: 8px 12px; border: 1px solid #f5c2a0; background: #fff7ed; border-radius: 6px; font-size: 9.5pt; }
     .alert ul { margin: 4px 0 0; padding-left: 18px; }
-    .source { margin: 0 0 10px; padding: 8px 12px; border: 1px solid #d5dce8; border-radius: 6px; break-inside: avoid; }
-    .source-num { font: 700 10pt Arial, sans-serif; color: #F28C28; }
-    .source .kv { margin: 6px 0 0; }
     .keep { break-inside: avoid; }
+    .sources td { font-size: 9pt; }
+    .sources td:first-child { width: 30px; font: 700 9pt Arial, sans-serif; color: #F28C28; }
+    .sources td:nth-child(3), .sources td:nth-child(4) { width: 17%; }
+    .src-meta { color: #5b6b86; font-size: 8.5pt; }
+    .src-link { font-size: 8pt; }
+    .src-notes { margin-top: 3px; font-size: 8.5pt; color: #334155; }
     .refs { margin: 0; padding-left: 20px; }
     .verdict { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #f4f6fa; border-radius: 6px; }
     .verdict-label { font: 700 9pt Arial, sans-serif; text-transform: uppercase; letter-spacing: .05em; color: #0B2A6F; }
-    .lines div { height: 26px; border-bottom: 1px solid #c2cad8; }
-    .decision { margin-top: 14px; } .decision td { font: 10pt Arial, sans-serif; padding: 8px; }
-    .signatures { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-top: 44px; font: 9pt Arial, sans-serif; color: #5b6b86; }
-    .signatures span { display: block; border-top: 1px solid #0f1b33; margin-bottom: 4px; }
     footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #d5dce8; font: 8pt Arial, sans-serif; color: #5b6b86; }
     @media (max-width: 720px) {
         .page { margin: 0; padding: 16px; box-shadow: none; }
@@ -278,7 +247,6 @@ function buildReportHtml(idea, allIdeas) {
         html { background: #fff; }
         .toolbar { display: none; }
         .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
-        section:last-of-type { break-inside: avoid; }
     }
 </style>
 </head>
@@ -286,7 +254,7 @@ function buildReportHtml(idea, allIdeas) {
 <div class="toolbar">
     <button class="primary" onclick="window.print()">⬇ Descargar PDF</button>
     <button onclick="window.close()">Cerrar</button>
-    <span>En el diálogo, elige “Guardar como PDF” como destino.</span>
+    <span>En el diálogo, elige “Guardar como PDF” y desmarca “Encabezados y pies de página”.</span>
 </div>
 <div class="page">
     <header>

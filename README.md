@@ -67,7 +67,7 @@ confirmar que cada cifra se comprobó en su fuente original. Las advertencias de
 Desde **En Proceso** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**.
 Abre en una pestaña nueva un informe formal en formato A4 con toda la información de la idea:
 afirmación, evaluación y matriz de priorización, fuentes de verificación, veredicto y análisis,
-checklist de calidad y un espacio final para las observaciones y la firma del profesor.
+veredicto y análisis. Las fuentes de verificación van en una tabla compacta.
 Incluye lo escrito en el formulario aunque todavía no se haya guardado. **Descargar PDF** abre el
 diálogo de impresión del navegador: elegir *Guardar como PDF*. Los campos vacíos aparecen como
 *No informado* para que se vea qué falta. El formato se edita en `js/reporte.js`.
