@@ -5,9 +5,9 @@ const CACHE_KEY = 'fast-check-ideas';
 // Flujo de 5 etapas (Lineamientos → "Flujo de trabajo completo").
 const STATUSES = [
     { id: 'initial', label: 'Ideas Iniciales', color: 'var(--k-initial)', hint: 'Captura la afirmación exacta: quién la dijo, dónde, cuándo y al menos 2 fuentes iniciales.' },
-    { id: 'discussion', label: 'En Discusión', color: 'var(--k-discussion)', hint: 'Evaluación inicial: ¿está en cobertura y es verificable? Se asigna prioridad y responsable.' },
-    { id: 'working', label: 'En Proceso', color: 'var(--k-working)', hint: 'Investigación: fuentes de verificación, veredicto, explicación y checklist.' },
-    { id: 'pending', label: 'Pendiente Publicación', color: 'var(--k-pending)', hint: 'Redacción y diseño del post, revisión por otra persona y aprobación del equipo.' },
+    { id: 'discussion', label: 'En Discusión', color: 'var(--k-discussion)', hint: 'Evaluación e investigación: filtros, prioridad, responsable, fuentes de verificación, veredicto, explicación y checklist.' },
+    { id: 'working', label: 'En Proceso', color: 'var(--k-working)', hint: 'Diseño del post de Instagram: hook, puntos clave, diseño, revisión por otra persona y aprobación del equipo.' },
+    { id: 'pending', label: 'Pendiente Publicación', color: 'var(--k-pending)', hint: 'Posts listos y aprobados, en cola para irlos subiendo de a poco.' },
     { id: 'published', label: 'Publicadas', color: 'var(--k-published)', hint: 'Link, métricas y registro de correcciones (protocolo de error).' }
 ];
 const DISCARDED = { id: 'discarded', label: 'Descartadas', color: 'var(--k-neutral)', hint: 'Ideas que no siguieron, con su motivo. Se pueden restaurar.' };
@@ -140,14 +140,12 @@ function requirementsFor(idea, target) {
             if (n < L.MIN_INITIAL_SOURCES) missing.push(`Agrega al menos ${L.MIN_INITIAL_SOURCES} fuentes iniciales (hay ${n}).`);
             break;
         }
-        case 'working':
+        case 'working': {
             if (!idea.in_coverage) missing.push('Confirma que está dentro de las áreas de cobertura.');
             if (!idea.is_verifiable) missing.push('Confirma que es verificable (no opinión ni especulación).');
             if (!idea.circulates) missing.push('Confirma que circula de verdad o tiene un riesgo claro (para no amplificarla).');
             if (idea.priority_override && !idea.priority_override_reason.trim()) missing.push('Escribe el motivo por el que cambiaron la prioridad de la matriz.');
             if (!idea.owner) missing.push('Asigna un responsable.');
-            break;
-        case 'pending': {
             const n = completeVerificationSources(idea);
             const exception = idea.single_source_exception.trim() && n >= 1;
             if (n < L.MIN_VERIFICATION_SOURCES && !exception) {
@@ -159,7 +157,7 @@ function requirementsFor(idea, target) {
             if (k) missing.push(`Completa el checklist de investigación (faltan ${k}) con el botón ☑ de la tarjeta.`);
             break;
         }
-        case 'published': {
+        case 'pending': {
             const words = hookWords(idea.hook);
             if (!words) missing.push('Escribe el hook.');
             else if (words > 10) missing.push(`El hook tiene ${words} palabras (máximo 10).`);
@@ -178,7 +176,7 @@ function requirementsFor(idea, target) {
 // Avisos que no bloquean, pero que los Lineamientos piden revisar.
 function warningsFor(idea) {
     const warnings = [];
-    if (stageIndex(idea.status) >= 2 && idea.sources.length >= 2 && !idea.sources.some(s => s.stance === 'contradice')) {
+    if (stageIndex(idea.status) >= 1 && idea.sources.length >= 2 && !idea.sources.some(s => s.stance === 'contradice')) {
         warnings.push('Ninguna fuente contradice la afirmación: ¿se buscó evidencia contraria?');
     }
     if (idea.sources.some(s => s.type === 'rumor')) {
@@ -439,11 +437,11 @@ function renderContent() {
     });
 }
 
-// --- Checklist desde la tarjeta (En Proceso y Pendiente Publicación) ---
+// --- Checklist desde la tarjeta (En Discusión y En Proceso) ---
 
 const CHECKLISTS = {
-    working: { title: 'Checklist de investigación', list: L.CHECKLIST_RESEARCH },
-    pending: { title: 'Checklist de publicación', list: L.CHECKLIST_PUBLISH }
+    discussion: { title: 'Checklist de investigación', list: L.CHECKLIST_RESEARCH },
+    working: { title: 'Checklist de publicación', list: L.CHECKLIST_PUBLISH }
 };
 let checklistOpenId = null;
 
@@ -758,9 +756,7 @@ function sectionDiscussion(idea, open) {
 
 function sectionResearch(idea, open) {
     const verdict = idea.verdict ? findOption(VERDICTS, idea.verdict) : null;
-    const alerts = idea.ai_eval && Array.isArray(idea.ai_eval.alerts) ? idea.ai_eval.alerts : [];
     return fold('3 · Investigación', open, `
-        ${alerts.length ? `<div class="mx-alerts"><strong>⚠️ Señales de alerta que detectó la IA al priorizar</strong><ul>${alerts.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul></div>` : ''}
         <div class="form-group">
             <span class="form-label">Fuentes de verificación <span class="form-hint inline">mínimo ${L.MIN_VERIFICATION_SOURCES} independientes · busca también evidencia contraria</span></span>
             <div class="rows" id="verificationSources">${(idea.sources.length ? idea.sources : [{}, {}]).map(verificationSourceRow).join('')}</div>
@@ -777,12 +773,12 @@ function sectionResearch(idea, open) {
         </div>
         ${field('analysis', 'Explicación concisa', idea.analysis, { textarea: true, rows: 110, placeholder: 'Qué dice la evidencia y por qué el veredicto.' })}
         ${field('missing_context', 'Contexto que falta', idea.missing_context, { textarea: true, placeholder: 'Lo que la afirmación omite o altera.' })}
-    `, stageIndex(idea.status) > 2);
+    `, stageIndex(idea.status) > 1);
 }
 
 function sectionPublish(idea, open) {
     const words = hookWords(idea.hook);
-    return fold('4 · Publicación', open, `
+    return fold('4 · Post de Instagram', open, `
         ${field('hook', 'Hook / pregunta', idea.hook, { placeholder: 'Máximo 10 palabras, llamativo pero preciso', hint: `<span id="hookCount">${words}</span>/10 palabras` })}
         ${field('key_points', 'Puntos clave (2–3)', idea.key_points, { textarea: true, placeholder: 'Máx. 300–400 caracteres en total' })}
         ${field('design_url', 'Link al diseño', idea.design_url, { placeholder: 'Canva, Drive…' })}
@@ -797,7 +793,7 @@ function sectionPublish(idea, open) {
                 ${checkbox('approved_by_team', 'El equipo aprobó la publicación', idea.approved_by_team)}
             </div>
         </div>
-    `, stageIndex(idea.status) > 3);
+    `, stageIndex(idea.status) > 2);
 }
 
 function sectionPublished(idea, open) {
@@ -836,24 +832,20 @@ function renderModalBody(idea) {
     const discarded = idea.status === 'discarded';
     let html = '<div class="req-box" id="reqBox"></div>' + peopleDatalist();
     html += sectionDiscard(idea);
-    if (idea.status === 'initial') html += researchPanelHtml(idea);
+    if (i <= 1 && !discarded) html += researchPanelHtml(idea);
     html += sectionClaim(idea, i === 0);
     if (i >= 1 || discarded) html += sectionDiscussion(idea, i === 1);
-    if (i >= 2) html += sectionResearch(idea, i === 2);
-    if (i >= 3) html += sectionPublish(idea, i === 3);
+    if (i >= 1) html += sectionResearch(idea, i === 1);
+    if (i >= 2) html += sectionPublish(idea, i === 2);
     if (i >= 4) html += sectionPublished(idea, true);
     return html;
 }
 
 // Acciones secundarias, en el encabezado del formulario (no cambian la etapa).
 function renderModalTools(idea) {
-    if (idea.status === 'initial') {
-        return '<button class="btn btn-ghost btn-sm btn-research" data-action="research-open" title="Completar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>';
-    }
-    if (stageIndex(idea.status) >= 2) {
-        return '<button class="btn btn-ghost btn-sm" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>';
-    }
-    return '';
+    const i = stageIndex(idea.status);
+    return (i === 0 || i === 1 ? '<button class="btn btn-ghost btn-sm btn-research" data-action="research-open" title="Completar o actualizar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>' : '')
+        + (i >= 1 ? '<button class="btn btn-ghost btn-sm" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>' : '');
 }
 
 function renderModalFooter(idea) {
@@ -1146,8 +1138,8 @@ function readResearch() {
     try {
         if (!text) throw new Error('Pega primero la respuesta de la IA.');
         const research = parseResearch(text);
-        const merged = mergeResearch(readForm(idea), research, document.getElementById('researchOwner').value.trim());
-        const outcome = advanceResearch(merged);
+        const merged = mergeResearch(readForm(idea), research);
+        const outcome = advanceResearch(merged, idea.status);
         result.innerHTML = researchPreviewHtml(research, merged, outcome);
         return { merged, outcome };
     } catch (error) {
@@ -1169,7 +1161,7 @@ async function applyResearch() {
     merged.status = outcome.status;
     await persist(merged, outcome.missing.length
         ? `✓ Investigación aplicada. Quedó en ${stage.label}: revisa lo que falta.`
-        : '✓ Investigación aplicada. La idea pasó a En Proceso.');
+        : `✓ Investigación aplicada. La idea está en ${stage.label}.`);
     currentTab = outcome.status;
     finishEditing();
     openModal(merged.id);

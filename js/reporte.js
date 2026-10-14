@@ -1,4 +1,4 @@
-// Reporte formal de la propuesta (etapa En Proceso en adelante).
+// Reporte formal de la propuesta (etapa En Discusión en adelante).
 // Arma un documento A4 con toda la información de la idea, listo para que
 // un profesor lo revise. Se abre en una pestaña nueva y "Descargar PDF" usa
 // el diálogo de impresión del navegador (Guardar como PDF), sin dependencias.

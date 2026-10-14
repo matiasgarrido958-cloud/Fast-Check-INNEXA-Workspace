@@ -36,36 +36,40 @@ Retroceder siempre se puede.
 | Etapa | Qué se completa | Requisito para avanzar |
 |---|---|---|
 | 1. Ideas Iniciales | Afirmación, quién la dijo, fecha, enlace, alcance, pregunta, categoría, gancho, fuentes iniciales | Afirmación, categoría, autor y 2+ fuentes iniciales |
-| 2. En Discusión | Cobertura, verificable, prioridad, responsable | Todo lo anterior marcado |
-| 3. En Proceso | Fuentes de verificación (tipo y postura), veredicto, explicación, contexto que falta, checklist | 2+ fuentes con título y enlace (o excepción), veredicto, explicación, checklist completo |
-| 4. Pendiente Publicación | Hook, puntos clave, diseño, revisor, aprobación del equipo, checklist | Hook ≤ 10 palabras, revisor distinto del responsable, aprobación y checklist |
+| 2. En Discusión | Evaluación e investigación: cobertura, verificable, prioridad, responsable, fuentes de verificación (tipo y postura), veredicto, explicación, contexto que falta, checklist de investigación | Filtros marcados, responsable, 2+ fuentes con título y enlace (o excepción), veredicto, explicación y checklist completo |
+| 3. En Proceso | Diseño del post de Instagram: hook, puntos clave, diseño, revisor, aprobación del equipo, checklist de publicación | Hook ≤ 10 palabras, puntos clave, revisor distinto del responsable, aprobación y checklist |
+| 4. Pendiente Publicación | Cola de posts listos y aprobados, para irlos subiendo de a poco | — |
 | 5. Publicadas | Link, fecha, guardados, compartidos, correcciones (Fe de Erratas) | — |
 
 Las ideas que no siguen se **descartan** con un motivo (no se borran) y se pueden restaurar.
 Solo desde *Descartadas* se puede eliminar definitivamente.
 
-El checklist de En Proceso y de Pendiente Publicación se marca desde el botón **☑** de la tarjeta (se guarda al marcar).
+El checklist de En Discusión (investigación) y de En Proceso (publicación) se marca desde el botón **☑** de la tarjeta (se guarda al marcar).
 Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsable y revisor se escriben libremente (la página sugiere los nombres ya usados).
 
 ## Investigación profunda IA
 
-En **Ideas Iniciales**, el botón **✨ Investigación profunda IA** (arriba a la derecha del formulario) abre un panel con tres pasos:
+En **Ideas Iniciales** y **En Discusión**, el botón **✨ Investigación profunda IA** (arriba a la derecha
+del formulario) abre un panel con dos pasos:
 
 1. **Copiar el prompt**: incluye la afirmación y lo que ya se sabe de ella. Se usa en Claude u otra IA.
    Pide un informe (TL;DR, quién lo dijo, fuentes, detalles, advertencias) y, al final, un bloque
    ` ```json ` con un formato fijo. Si ya existe un informe, el mismo prompt sirve para convertirlo.
 2. **Pegar la respuesta completa** de la IA.
-3. **Indicar el responsable** (requisito para En Proceso).
 
-*Revisar respuesta* muestra qué se leyó y hasta qué etapa llegará; *Aplicar y avanzar* completa la idea
-y la mueve sola por las etapas cuyos requisitos se cumplan, hasta **En Proceso**. La afirmación escrita
-por el equipo no se reemplaza, y el checklist de investigación no se marca solo: el equipo debe
-confirmar que cada cifra se comprobó en su fuente original. Las advertencias del informe quedan en
-*Contexto que falta*.
+*Revisar respuesta* muestra qué se leyó; *Aplicar* completa la idea:
+
+- Desde **Ideas Iniciales**, la idea pasa sola a **En Discusión** si cumple los requisitos.
+- En **En Discusión**, sirve para actualizar los datos con un informe corregido (por ejemplo, revisado por
+  otra IA); la idea se queda en En Discusión. El paso a En Proceso lo decide el equipo.
+
+La afirmación escrita por el equipo no se reemplaza, y el checklist de investigación no se marca solo: el
+equipo debe confirmar que cada cifra se comprobó en su fuente original. Las advertencias del informe
+quedan en *Contexto que falta*.
 
 ## Reporte de la propuesta
 
-Desde **En Proceso** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**, arriba a la derecha del formulario.
+Desde **En Discusión** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**, arriba a la derecha del formulario.
 Abre en una pestaña nueva un informe formal en formato A4 con toda la información de la idea:
 afirmación, fuentes de verificación, veredicto y análisis,
 veredicto y análisis. Las fuentes de verificación van en una tabla compacta.

@@ -73,7 +73,7 @@ window.LINEAMIENTOS = {
     AI_FUNCTION: 'evaluar-prioridad',
 
     // "Checklist antes de publicar", dividido por etapa.
-    // En Proceso: debe estar completo para pasar a Pendiente de Publicación.
+    // En Discusión: debe estar completo para pasar a En Proceso.
     CHECKLIST_RESEARCH: [
         { id: 'fuentes', label: 'Tengo 2+ fuentes confiables independientes (o excepción documentada)' },
         { id: 'origen', label: 'Registré autor original, enlace, fecha y contexto de la afirmación' },
@@ -83,7 +83,7 @@ window.LINEAMIENTOS = {
         { id: 'neutral', label: 'El veredicto es neutral y usa la escala oficial' },
         { id: 'citadas', label: 'Las fuentes están completamente citadas (nombres + enlaces)' }
     ],
-    // Pendiente de Publicación: debe estar completo para pasar a Publicadas.
+    // En Proceso: debe estar completo para pasar a Pendiente de Publicación.
     CHECKLIST_PUBLISH: [
         { id: 'clara', label: 'La explicación es clara y concisa' },
         { id: 'tono', label: 'El tono es educativo, no sensacionalista' },

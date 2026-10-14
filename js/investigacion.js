@@ -2,10 +2,9 @@
 // 1. La página arma un prompt con la afirmación para usarlo en Claude u otra IA.
 // 2. La IA entrega un informe y, al final, un bloque JSON con formato fijo.
 // 3. Se pega la respuesta: la página lee el JSON, completa la idea y la avanza
-//    sola por las etapas cuyos requisitos se cumplan (hasta En Proceso).
+//    a En Discusión si cumple los requisitos. En En Discusión sirve para actualizar
+//    los datos con un informe corregido (por ejemplo, revisado por otra IA).
 // Usa las constantes y funciones globales de app.js y lineamientos.js.
-
-const RESEARCH_TARGET = 'working';
 
 function researchIds(list) {
     return list.map(o => `"${o.id}" (${o.label})`).join(', ');
@@ -175,7 +174,7 @@ function parseResearch(text) {
 
 // Combina la investigación con la idea. Lo que la IA deja vacío conserva lo que
 // ya había; la afirmación escrita por el equipo no se reemplaza.
-function mergeResearch(base, r, owner) {
+function mergeResearch(base, r) {
     const idea = JSON.parse(JSON.stringify(base));
     for (const key of ['claim_author', 'claim_date', 'claim_url', 'category', 'scope', 'question', 'gancho',
         'single_source_exception', 'verdict', 'analysis']) {
@@ -193,20 +192,15 @@ function mergeResearch(base, r, owner) {
     idea.in_coverage = r.in_coverage;
     idea.is_verifiable = r.is_verifiable;
     idea.circulates = r.circulates;
-    if (owner) idea.owner = owner;
     return idea;
 }
 
-// Avanza etapa por etapa mientras se cumplan los requisitos, hasta En Proceso.
-function advanceResearch(idea) {
-    const draft = { ...idea, status: 'initial' };
-    let missing = [];
-    for (const target of ['discussion', RESEARCH_TARGET]) {
-        missing = requirementsFor(draft, target);
-        if (missing.length) break;
-        draft.status = target;
-    }
-    return { status: draft.status, missing: draft.status === RESEARCH_TARGET ? [] : missing };
+// Desde Ideas Iniciales pasa a En Discusión si cumple los requisitos; en En
+// Discusión se queda ahí (solo se actualizan los datos).
+function advanceResearch(idea, status) {
+    if (status === 'discussion') return { status, missing: [] };
+    const missing = requirementsFor(idea, 'discussion');
+    return { status: missing.length ? 'initial' : 'discussion', missing };
 }
 
 // --- Panel en el formulario ---
@@ -214,7 +208,9 @@ function advanceResearch(idea) {
 function researchPanelHtml(idea) {
     return `<div class="research-panel" id="researchPanel" hidden>
         <div class="section-title">✨ Investigación profunda IA</div>
-        <p class="form-hint">Investiga la afirmación con Claude u otra IA y pega aquí su respuesta: la idea se completa y avanza sola hasta En Proceso si cumple los requisitos.</p>
+        <p class="form-hint">${idea.status === 'discussion'
+            ? 'Para actualizar la idea con un informe corregido (por ejemplo, revisado por otra IA): pide a la IA el formato del prompt y pega aquí su respuesta. Los datos se reemplazan y la idea sigue en En Discusión.'
+            : 'Investiga la afirmación con Claude u otra IA y pega aquí su respuesta: la idea se completa y pasa sola a En Discusión si cumple los requisitos.'}</p>
         <div class="form-group">
             <span class="form-label">1 · Copia este prompt y úsalo en la IA</span>
             <textarea class="form-textarea research-prompt" id="researchPrompt" readonly rows="8"></textarea>
@@ -224,16 +220,11 @@ function researchPanelHtml(idea) {
             <label class="form-label" for="researchText">2 · Pega la respuesta completa de la IA</label>
             <textarea class="form-textarea" id="researchText" rows="8" placeholder="Pega aquí el informe con el bloque JSON del final…"></textarea>
         </div>
-        <div class="form-group">
-            <label class="form-label" for="researchOwner">3 · Responsable de la idea</label>
-            ${personInput('researchOwner', idea.owner)}
-            <span class="form-hint">Necesario para pasar a En Proceso.</span>
-        </div>
         <div id="researchResult"></div>
         <div class="discard-actions">
             <button type="button" class="btn btn-ghost" data-action="research-cancel">Cancelar</button>
             <button type="button" class="btn btn-ghost" data-action="research-preview">Revisar respuesta</button>
-            <button type="button" class="btn btn-primary" data-action="research-confirm" id="researchConfirm" hidden>Aplicar y avanzar</button>
+            <button type="button" class="btn btn-primary" data-action="research-confirm" id="researchConfirm" hidden>Aplicar</button>
         </div>
     </div>`;
 }
@@ -249,7 +240,7 @@ function researchPreviewHtml(r, merged, outcome) {
     const flags = [['Cobertura', r.in_coverage], ['Verificable', r.is_verifiable], ['Circula', r.circulates]]
         .map(([k, v]) => `${k} ${v ? '✓' : '✗'}`).join(' · ');
     return `<div class="req ${outcome.missing.length ? 'missing' : 'ok'}">
-            <strong>${outcome.missing.length ? `Quedará en ${escapeHtml(stage.label)}. Para llegar a En Proceso falta:` : '✓ Quedará en En Proceso.'}</strong>
+            <strong>${outcome.missing.length ? `Quedará en ${escapeHtml(stage.label)}. Para pasar a En Discusión falta:` : `✓ Quedará en ${escapeHtml(stage.label)}.`}</strong>
             ${outcome.missing.length ? `<ul>${outcome.missing.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>` : ''}
         </div>
         <div class="research-summary">
