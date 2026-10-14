@@ -845,15 +845,24 @@ function renderModalBody(idea) {
     return html;
 }
 
+// Acciones secundarias, en el encabezado del formulario (no cambian la etapa).
+function renderModalTools(idea) {
+    if (idea.status === 'initial') {
+        return '<button class="btn btn-ghost btn-sm btn-research" data-action="research-open" title="Completar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>';
+    }
+    if (stageIndex(idea.status) >= 2) {
+        return '<button class="btn btn-ghost btn-sm" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>';
+    }
+    return '';
+}
+
 function renderModalFooter(idea) {
     const prev = prevStatus(idea.status);
     const next = nextStatus(idea.status);
     const left = idea.status === 'discarded'
         ? `<button class="btn btn-ghost" data-action="restore">↺ Restaurar a ${escapeHtml(findOption(STATUSES, idea.discarded_from || 'initial').label)}</button>`
         : `${idea.status !== 'published' ? '<button class="btn btn-ghost danger" data-action="discard">Descartar</button>' : ''}
-           ${idea.status === 'initial' ? '<button class="btn btn-ghost btn-research" data-action="research-open" title="Completar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>' : ''}
-           ${prev ? `<button class="btn btn-ghost" data-action="back" title="Volver a ${escapeHtml(prev.label)}">← Volver</button>` : ''}
-           ${stageIndex(idea.status) >= 2 ? '<button class="btn btn-ghost" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>' : ''}`;
+           ${prev ? `<button class="btn btn-ghost" data-action="back" title="Volver a ${escapeHtml(prev.label)}">← Volver</button>` : ''}`;
     return `<div class="footer-left">${left}</div>
         <div class="footer-right">
             <button class="btn btn-ghost" data-action="close">Cancelar</button>
@@ -965,6 +974,7 @@ function openModal(id) {
     const body = document.getElementById('modalBody');
     body.innerHTML = renderModalBody(idea);
     document.getElementById('modalFooter').innerHTML = renderModalFooter(idea);
+    document.getElementById('modalTools').innerHTML = renderModalTools(idea);
     updateRequirements();
 
     document.getElementById('modal').classList.add('open');
@@ -1225,6 +1235,10 @@ function setupModalEvents() {
             markDirty();
             return;
         }
+        const action = e.target.closest('[data-action]');
+        if (action) handleModalAction(action.getAttribute('data-action'));
+    });
+    document.getElementById('modalTools').addEventListener('click', (e) => {
         const action = e.target.closest('[data-action]');
         if (action) handleModalAction(action.getAttribute('data-action'));
     });

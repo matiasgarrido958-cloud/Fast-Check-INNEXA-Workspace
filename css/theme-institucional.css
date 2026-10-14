@@ -367,3 +367,12 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
 .check-pop-head { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--navy); }
 .check-pop-head .modal-close { margin-left: auto; }
 .check-pop-title { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+
+/* Acciones secundarias en el encabezado del formulario */
+.modal-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.modal-tools #modalTools:empty { display: none; }
+.btn-sm { padding: 7px 12px; font-size: 13px; }
+@media (max-width: 720px) {
+    .modal-header { flex-wrap: wrap; }
+    .modal-tools { width: 100%; justify-content: space-between; order: -1; }
+}

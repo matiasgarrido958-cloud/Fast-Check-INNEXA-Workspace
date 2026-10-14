@@ -49,7 +49,7 @@ Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsa
 
 ## Investigación profunda IA
 
-En **Ideas Iniciales**, el botón **✨ Investigación profunda IA** abre un panel con tres pasos:
+En **Ideas Iniciales**, el botón **✨ Investigación profunda IA** (arriba a la derecha del formulario) abre un panel con tres pasos:
 
 1. **Copiar el prompt**: incluye la afirmación y lo que ya se sabe de ella. Se usa en Claude u otra IA.
    Pide un informe (TL;DR, quién lo dijo, fuentes, detalles, advertencias) y, al final, un bloque
@@ -65,7 +65,7 @@ confirmar que cada cifra se comprobó en su fuente original. Las advertencias de
 
 ## Reporte de la propuesta
 
-Desde **En Proceso** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**.
+Desde **En Proceso** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**, arriba a la derecha del formulario.
 Abre en una pestaña nueva un informe formal en formato A4 con toda la información de la idea:
 afirmación, evaluación y matriz de priorización, fuentes de verificación, veredicto y análisis,
 veredicto y análisis. Las fuentes de verificación van en una tabla compacta.
