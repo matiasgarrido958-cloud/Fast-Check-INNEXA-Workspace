@@ -1,9 +1,8 @@
 // Investigación profunda con IA (etapa Ideas Iniciales).
 // 1. La página arma un prompt con la afirmación para usarlo en Claude u otra IA.
 // 2. La IA entrega un informe y, al final, un bloque JSON con formato fijo.
-// 3. Se pega la respuesta: la página lee el JSON, completa la idea y la avanza
-//    a En Discusión si cumple los requisitos. En En Discusión sirve para actualizar
-//    los datos con un informe corregido (por ejemplo, revisado por otra IA).
+// 3. Se pega la respuesta: la página lee el JSON y guarda los datos en la idea,
+//    que sigue en Ideas Iniciales. El equipo la pasa de etapa cuando esté seguro.
 // Usa las constantes y funciones globales de app.js y lineamientos.js.
 
 function researchIds(list) {
@@ -195,22 +194,12 @@ function mergeResearch(base, r) {
     return idea;
 }
 
-// Desde Ideas Iniciales pasa a En Discusión si cumple los requisitos; en En
-// Discusión se queda ahí (solo se actualizan los datos).
-function advanceResearch(idea, status) {
-    if (status === 'discussion') return { status, missing: [] };
-    const missing = requirementsFor(idea, 'discussion');
-    return { status: missing.length ? 'initial' : 'discussion', missing };
-}
-
 // --- Panel en el formulario ---
 
 function researchPanelHtml(idea) {
     return `<div class="research-panel" id="researchPanel" hidden>
         <div class="section-title">✨ Investigación profunda IA</div>
-        <p class="form-hint">${idea.status === 'discussion'
-            ? 'Para actualizar la idea con un informe corregido (por ejemplo, revisado por otra IA): pide a la IA el formato del prompt y pega aquí su respuesta. Los datos se reemplazan y la idea sigue en En Discusión.'
-            : 'Investiga la afirmación con Claude u otra IA y pega aquí su respuesta: la idea se completa y pasa sola a En Discusión si cumple los requisitos.'}</p>
+        <p class="form-hint">Investiga la afirmación con Claude u otra IA y pega aquí su respuesta: la información queda guardada en la idea, que sigue en Ideas Iniciales. Revísala y pásala a En Discusión cuando estés seguro.</p>
         <div class="form-group">
             <span class="form-label">1 · Copia este prompt y úsalo en la IA</span>
             <textarea class="form-textarea research-prompt" id="researchPrompt" readonly rows="8"></textarea>
@@ -224,13 +213,12 @@ function researchPanelHtml(idea) {
         <div class="discard-actions">
             <button type="button" class="btn btn-ghost" data-action="research-cancel">Cancelar</button>
             <button type="button" class="btn btn-ghost" data-action="research-preview">Revisar respuesta</button>
-            <button type="button" class="btn btn-primary" data-action="research-confirm" id="researchConfirm" hidden>Aplicar</button>
+            <button type="button" class="btn btn-primary" data-action="research-confirm" id="researchConfirm" hidden>Guardar en la idea</button>
         </div>
     </div>`;
 }
 
-function researchPreviewHtml(r, merged, outcome) {
-    const stage = findOption(STATUSES, outcome.status);
+function researchPreviewHtml(r, merged, missing) {
     const filled = [
         ['Autor / medio', r.claim_author], ['Fecha', r.claim_date], ['Enlace', r.claim_url], ['Categoría', r.category],
         ['Alcance', r.scope], ['Pregunta', r.question], ['Gancho', r.gancho], ['Explicación', r.analysis], ['Contexto que falta', r.missing_context]
@@ -239,9 +227,9 @@ function researchPreviewHtml(r, merged, outcome) {
     const stances = L.SOURCE_STANCES.map(s => `${s.label.toLowerCase()}: ${r.sources.filter(x => x.stance === s.id).length}`).join(' · ');
     const flags = [['Cobertura', r.in_coverage], ['Verificable', r.is_verifiable], ['Circula', r.circulates]]
         .map(([k, v]) => `${k} ${v ? '✓' : '✗'}`).join(' · ');
-    return `<div class="req ${outcome.missing.length ? 'missing' : 'ok'}">
-            <strong>${outcome.missing.length ? `Quedará en ${escapeHtml(stage.label)}. Para pasar a En Discusión falta:` : `✓ Quedará en ${escapeHtml(stage.label)}.`}</strong>
-            ${outcome.missing.length ? `<ul>${outcome.missing.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>` : ''}
+    return `<div class="req ${missing.length ? 'missing' : 'ok'}">
+            <strong>${missing.length ? 'Se guardará en Ideas Iniciales. Para pasar a En Discusión faltará:' : '✓ Se guardará en Ideas Iniciales, lista para pasar a En Discusión cuando lo decidas.'}</strong>
+            ${missing.length ? `<ul>${missing.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>` : ''}
         </div>
         <div class="research-summary">
             <div><strong>Afirmación:</strong> ${escapeHtml(merged.title || '—')}${r.title && r.title !== merged.title ? ' <span class="form-hint inline">(se mantiene la del equipo)</span>' : ''}</div>

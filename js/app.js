@@ -832,10 +832,12 @@ function renderModalBody(idea) {
     const discarded = idea.status === 'discarded';
     let html = '<div class="req-box" id="reqBox"></div>' + peopleDatalist();
     html += sectionDiscard(idea);
-    if (i <= 1 && !discarded) html += researchPanelHtml(idea);
+    if (i === 0) html += researchPanelHtml(idea);
     html += sectionClaim(idea, i === 0);
     if (i >= 1 || discarded) html += sectionDiscussion(idea, i === 1);
-    if (i >= 1) html += sectionResearch(idea, i === 1);
+    // En Ideas Iniciales se muestra si ya hay investigación guardada (para revisarla antes de avanzar).
+    const hasResearch = idea.sources.length || idea.verdict || idea.analysis.trim();
+    if (i >= 1 || (i === 0 && hasResearch)) html += sectionResearch(idea, i === 1);
     if (i >= 2) html += sectionPublish(idea, i === 2);
     if (i >= 4) html += sectionPublished(idea, true);
     return html;
@@ -844,7 +846,7 @@ function renderModalBody(idea) {
 // Acciones secundarias, en el encabezado del formulario (no cambian la etapa).
 function renderModalTools(idea) {
     const i = stageIndex(idea.status);
-    return (i === 0 || i === 1 ? '<button class="btn btn-ghost btn-sm btn-research" data-action="research-open" title="Completar o actualizar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>' : '')
+    return (i === 0 ? '<button class="btn btn-ghost btn-sm btn-research" data-action="research-open" title="Completar la idea con un informe de investigación hecho con IA">✨ Investigación profunda IA</button>' : '')
         + (i >= 1 ? '<button class="btn btn-ghost btn-sm" data-action="report" title="Reporte formal con toda la información de la propuesta">⬇ Descargar propuesta</button>' : '');
 }
 
@@ -1139,9 +1141,9 @@ function readResearch() {
         if (!text) throw new Error('Pega primero la respuesta de la IA.');
         const research = parseResearch(text);
         const merged = mergeResearch(readForm(idea), research);
-        const outcome = advanceResearch(merged, idea.status);
-        result.innerHTML = researchPreviewHtml(research, merged, outcome);
-        return { merged, outcome };
+        const missing = requirementsFor(merged, 'discussion');
+        result.innerHTML = researchPreviewHtml(research, merged, missing);
+        return merged;
     } catch (error) {
         result.innerHTML = `<div class="req missing"><strong>No se pudo leer la respuesta.</strong><div>${escapeHtml(error.message)}</div></div>`;
         document.getElementById('researchConfirm').hidden = true;
@@ -1154,21 +1156,11 @@ function previewResearch() {
 }
 
 async function applyResearch() {
-    const read = readResearch();
-    if (!read) return;
-    const { merged, outcome } = read;
-    const stage = findOption(STATUSES, outcome.status);
-    merged.status = outcome.status;
-    await persist(merged, outcome.missing.length
-        ? `✓ Investigación aplicada. Quedó en ${stage.label}: revisa lo que falta.`
-        : `✓ Investigación aplicada. La idea está en ${stage.label}.`);
-    currentTab = outcome.status;
+    const merged = readResearch();
+    if (!merged) return;
+    await persist(merged, '✓ Investigación guardada. Revisa la idea y pásala a En Discusión cuando estés seguro.');
     finishEditing();
     openModal(merged.id);
-    if (outcome.status !== 'initial' && aiStatusOf(merged) !== 'ok') {
-        autoEvalTried.add(String(merged.id));
-        runAiEvaluation(merged.id, { silent: true });
-    }
 }
 
 async function discardIdea() {

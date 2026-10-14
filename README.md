@@ -49,19 +49,18 @@ Checklist, tipos de fuente y motivos se editan en `js/lineamientos.js`. Responsa
 
 ## Investigación profunda IA
 
-En **Ideas Iniciales** y **En Discusión**, el botón **✨ Investigación profunda IA** (arriba a la derecha
-del formulario) abre un panel con dos pasos:
+Solo en **Ideas Iniciales**, el botón **✨ Investigación profunda IA** (arriba a la derecha del formulario)
+abre un panel con dos pasos:
 
 1. **Copiar el prompt**: incluye la afirmación y lo que ya se sabe de ella. Se usa en Claude u otra IA.
    Pide un informe (TL;DR, quién lo dijo, fuentes, detalles, advertencias) y, al final, un bloque
    ` ```json ` con un formato fijo. Si ya existe un informe, el mismo prompt sirve para convertirlo.
 2. **Pegar la respuesta completa** de la IA.
 
-*Revisar respuesta* muestra qué se leyó; *Aplicar* completa la idea:
-
-- Desde **Ideas Iniciales**, la idea pasa sola a **En Discusión** si cumple los requisitos.
-- En **En Discusión**, sirve para actualizar los datos con un informe corregido (por ejemplo, revisado por
-  otra IA); la idea se queda en En Discusión. El paso a En Proceso lo decide el equipo.
+*Revisar respuesta* muestra qué se leyó y qué faltaría para pasar a En Discusión; *Guardar en la idea*
+guarda la información. La idea **no avanza sola**: sigue en Ideas Iniciales (sirve también para ir
+almacenando investigaciones) y el equipo la pasa a En Discusión cuando esté seguro. Después, los datos
+se corrigen a mano en el formulario.
 
 La afirmación escrita por el equipo no se reemplaza, y el checklist de investigación no se marca solo: el
 equipo debe confirmar que cada cifra se comprobó en su fuente original. Las advertencias del informe
