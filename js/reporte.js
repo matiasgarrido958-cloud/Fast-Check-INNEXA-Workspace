@@ -1,32 +1,20 @@
 // Reporte formal de la propuesta (etapa En Discusión en adelante).
-// Arma un documento A4 con toda la información de la idea, listo para que
-// un profesor lo revise. Se abre en una pestaña nueva y "Descargar PDF" usa
-// el diálogo de impresión del navegador (Guardar como PDF), sin dependencias.
-// Usa las constantes y funciones globales de app.js y prioridad.js.
+// Arma un PDF A4 con toda la información de la idea, listo para que un
+// profesor lo revise, y lo descarga directamente. Usa pdfmake (js/vendor/,
+// licencia MIT), que se carga solo la primera vez que se pide un reporte.
+// Usa las constantes y funciones globales de app.js.
 
-const REPORT_COLORS = {
-    verdadero: '#15803d', falso: '#c81e1e', 'engañoso': '#c2410c', depende: '#a16207', insuficiente: '#64748b'
+const REPORT_LIBS = ['js/vendor/pdfmake.min.js?v=0.2.20', 'js/vendor/vfs_fonts.js?v=0.2.20'];
+const REPORT_LOGO = 'assets/innexa-hub-logo-light.png';
+
+const RC = {
+    navy: '#0B2A6F', blue: '#043087', orange: '#F28C28', text: '#0f1b33', muted: '#5b6b86',
+    na: '#94a3b8', line: '#d5dce8', soft: '#eef2f8', quote: '#fdf5ec', verdictBg: '#f4f6fa'
 };
 
-function reportText(value) {
-    const text = String(value ?? '').trim();
-    return text ? escapeHtml(text) : '<span class="na">No informado</span>';
-}
-
-// Texto largo: respeta los saltos de línea que escribió el equipo.
-function reportParagraphs(value) {
-    const text = String(value ?? '').trim();
-    if (!text) return '<p class="na">No informado</p>';
-    return text.split(/\n{2,}/).map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
-}
-
-function reportLink(url) {
-    const text = String(url ?? '').trim();
-    if (!text) return '<span class="na">No informado</span>';
-    return /^https?:\/\//i.test(text)
-        ? `<a href="${escapeHtml(text)}">${escapeHtml(text)}</a>`
-        : escapeHtml(text);
-}
+const REPORT_VERDICT_COLORS = {
+    verdadero: '#15803d', falso: '#c81e1e', 'engañoso': '#c2410c', depende: '#a16207', insuficiente: '#64748b'
+};
 
 function reportDate(value, withTime = false) {
     if (!value) return '';
@@ -38,198 +26,295 @@ function reportDate(value, withTime = false) {
     return date.toLocaleDateString('es-CL', options);
 }
 
-function reportBadge(option, colorKey) {
-    if (!option) return '<span class="na">Sin definir</span>';
-    const color = REPORT_COLORS[colorKey] || '#334155';
-    return `<span class="badge" style="--c:${color}">${escapeHtml(option.label)}</span>`;
-}
-
-function reportRows(rows) {
-    return `<table class="kv">${rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${value}</td></tr>`).join('')}</table>`;
-}
-
-function reportSection(number, title, body) {
-    return `<section><h2><span class="num">${number}</span>${escapeHtml(title)}</h2>${body}</section>`;
-}
-
 function reportFileName(idea) {
     const slug = (idea.title || 'propuesta').normalize('NFD').replace(/[̀-ͯ]/g, '')
         .replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(' ').slice(0, 8).join(' ');
     return `Propuesta Fast Check ${idea.id} - ${slug}`;
 }
 
-function buildReportHtml(idea) {
+// --- Piezas del documento (formato pdfmake) ---
+
+const NA = { text: 'No informado', color: RC.na, italics: true };
+
+function rText(value) {
+    const text = String(value ?? '').trim();
+    return text ? { text } : { ...NA };
+}
+
+function rLink(url) {
+    const text = String(url ?? '').trim();
+    if (!text) return { ...NA };
+    return /^https?:\/\//i.test(text) ? { text, link: text, color: RC.blue, decoration: 'underline' } : { text };
+}
+
+// Texto largo: un párrafo por cada bloque separado por una línea en blanco.
+function rParagraphs(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return [{ ...NA, margin: [0, 0, 0, 8] }];
+    return text.split(/\n{2,}/).map(p => ({ text: p, alignment: 'justify', margin: [0, 0, 0, 8] }));
+}
+
+function rHeading(number, title) {
+    return {
+        margin: [0, 16, 0, 8],
+        headlineLevel: 1,
+        stack: [
+            {
+                columns: [
+                    {
+                        width: 20,
+                        table: { widths: [14], body: [[{ text: String(number), color: '#ffffff', bold: true, fontSize: 10, alignment: 'center' }]] },
+                        layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => RC.navy, paddingLeft: () => 2, paddingRight: () => 2, paddingTop: () => 2, paddingBottom: () => 2 }
+                    },
+                    { width: '*', text: title, style: 'h2', margin: [6, 1, 0, 0] }
+                ]
+            },
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.8, lineColor: RC.line }], margin: [0, 5, 0, 0] }
+        ]
+    };
+}
+
+function rSub(title) {
+    return { text: title, style: 'h3', margin: [0, 10, 0, 5] };
+}
+
+// Tabla de dos columnas (dato / valor) con líneas punteadas entre filas.
+function rRows(rows) {
+    return {
+        table: {
+            widths: ['34%', '*'],
+            body: rows.map(([label, value]) => [{ text: label, style: 'kvLabel' }, value])
+        },
+        layout: {
+            hLineWidth: i => (i === 0 || i === rows.length ? 0 : 0.6),
+            vLineWidth: () => 0,
+            hLineColor: () => RC.line,
+            hLineStyle: () => ({ dash: { length: 2, space: 2 } }),
+            paddingLeft: () => 0, paddingRight: () => 8, paddingTop: () => 4, paddingBottom: () => 4
+        },
+        margin: [0, 0, 0, 6]
+    };
+}
+
+function rGridLayout() {
+    return {
+        hLineWidth: () => 0.6, vLineWidth: () => 0.6,
+        hLineColor: () => RC.line, vLineColor: () => RC.line,
+        fillColor: row => (row === 0 ? RC.soft : null),
+        paddingLeft: () => 6, paddingRight: () => 6, paddingTop: () => 5, paddingBottom: () => 5
+    };
+}
+
+function rSummary(cells) {
+    const cell = ([label, value]) => ({ stack: [{ text: label.toUpperCase(), style: 'tiny' }, value] });
+    return {
+        table: { widths: ['*', '*', '*'], body: [cells.slice(0, 3).map(cell), cells.slice(3, 6).map(cell)] },
+        layout: {
+            hLineWidth: () => 0.6, vLineWidth: () => 0.6, hLineColor: () => RC.line, vLineColor: () => RC.line,
+            paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6
+        },
+        margin: [0, 0, 0, 4]
+    };
+}
+
+function buildReportDoc(idea, logo) {
     const stage = findOption(ALL_STATUSES, idea.status);
     const verdict = idea.verdict ? findOption(VERDICTS, idea.verdict) : null;
-    const now = new Date();
-    const logo = new URL('assets/innexa-hub-logo-light.png', window.location.href).href;
+    const verdictColor = REPORT_VERDICT_COLORS[idea.verdict] || '#334155';
     const label = (list, id) => (id ? findOption(list, id).label : '');
+    const typeShort = id => label(L.SOURCE_TYPES, id).replace(/\s*★+$/, '');
 
     // 1 · Afirmación
     const initialSources = idea.initial_sources.filter(s => (s.ref || '').trim());
-    const claim = `
-        <blockquote>“${escapeHtml(idea.title || 'Sin afirmación')}”</blockquote>
-        ${reportRows([
-            ['Autor / medio', reportText(idea.claim_author)],
-            ['Fecha de la afirmación', reportText(reportDate(idea.claim_date))],
-            ['Enlace', reportLink(idea.claim_url)],
-            ['Categoría', reportText(idea.category)],
-            ['Alcance', reportText(idea.scope)],
-            ['Pregunta a verificar', reportText(idea.question)]
-        ])}
-        <h3>Gancho y contexto</h3>
-        ${reportParagraphs(idea.gancho)}
-        <h3>Fuentes iniciales</h3>
-        ${initialSources.length
-            ? `<ol class="refs">${initialSources.map(s => `<li>${reportLink(s.ref)}</li>`).join('')}</ol>`
-            : '<p class="na">No informado</p>'}`;
+    const claim = [
+        rHeading(1, 'La afirmación'),
+        {
+            table: { widths: ['*'], body: [[{ text: `“${idea.title || 'Sin afirmación'}”`, italics: true, fontSize: 12 }]] },
+            layout: {
+                hLineWidth: () => 0, vLineWidth: i => (i === 0 ? 3 : 0), vLineColor: () => RC.orange,
+                fillColor: () => RC.quote, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 9, paddingBottom: () => 9
+            },
+            margin: [0, 0, 0, 10]
+        },
+        rRows([
+            ['Autor / medio', rText(idea.claim_author)],
+            ['Fecha de la afirmación', rText(reportDate(idea.claim_date))],
+            ['Enlace', rLink(idea.claim_url)],
+            ['Categoría', rText(idea.category)],
+            ['Alcance', rText(idea.scope)],
+            ['Pregunta a verificar', rText(idea.question)]
+        ]),
+        rSub('Gancho y contexto'),
+        ...rParagraphs(idea.gancho),
+        rSub('Fuentes iniciales'),
+        initialSources.length
+            ? { ol: initialSources.map(s => ({ ...rLink(s.ref), fontSize: 9 })), margin: [0, 0, 0, 4] }
+            : { ...NA }
+    ];
 
     // 2 · Investigación
     const sources = idea.sources.filter(s => Object.values(s).some(v => String(v || '').trim()));
     const stanceCount = id => sources.filter(s => s.stance === id).length;
-    const typeShort = id => label(L.SOURCE_TYPES, id).replace(/\s*★+$/, '');
-    const sourcesHtml = sources.length ? `<table class="grid sources">
-            <thead><tr><th class="c">N°</th><th>Fuente</th><th>Tipo</th><th>Postura</th></tr></thead>
-            <tbody>${sources.map((s, i) => `<tr>
-                <td class="c">${i + 1}</td>
-                <td><strong>${reportText(s.title)}</strong>
-                    <div class="src-meta">${[s.author, s.year].map(v => String(v || '').trim()).filter(Boolean).map(escapeHtml).join(' · ')}</div>
-                    ${s.url ? `<div class="src-link">${reportLink(s.url)}</div>` : ''}
-                    ${s.notes ? `<div class="src-notes">${escapeHtml(s.notes)}</div>` : ''}</td>
-                <td>${reportText(typeShort(s.type))}</td>
-                <td>${reportText(label(L.SOURCE_STANCES, s.stance))}</td>
-            </tr>`).join('')}</tbody>
-        </table>` : '<p class="na">Aún no se registran fuentes de verificación.</p>';
-    const research = `
-        <h3>Fuentes de verificación</h3>
-        <p class="muted">${sources.length} fuente(s) registrada(s) · mínimo requerido: ${L.MIN_VERIFICATION_SOURCES} independientes ·
-            respaldan: ${stanceCount('respalda')} · contradicen: ${stanceCount('contradice')} · aportan contexto: ${stanceCount('contexto')}</p>
-        ${sourcesHtml}
-        ${idea.single_source_exception ? `<h3>Excepción de fuente única</h3>${reportParagraphs(idea.single_source_exception)}` : ''}`;
-
-    // 3 · Veredicto y análisis
-    const conclusion = `
-        <div class="verdict">
-            <span class="verdict-label">Veredicto propuesto</span>
-            ${reportBadge(verdict, idea.verdict)}
-            ${verdict && verdict.hint ? `<span class="muted">${escapeHtml(verdict.hint)}</span>` : ''}
-        </div>
-        <h3>Explicación</h3>
-        ${reportParagraphs(idea.analysis)}
-        <h3>Contexto que falta</h3>
-        ${reportParagraphs(idea.missing_context)}`;
-
-    const sections = [
-        reportSection(1, 'La afirmación', claim),
-        reportSection(2, 'Investigación', research),
-        reportSection(3, 'Veredicto y análisis', conclusion)
+    const sourceRows = sources.map((s, i) => [
+        { text: String(i + 1), alignment: 'center', bold: true, color: RC.orange },
+        {
+            stack: [
+                { ...rText(s.title), bold: true },
+                ...([s.author, s.year].some(v => String(v || '').trim())
+                    ? [{ text: [s.author, s.year].map(v => String(v || '').trim()).filter(Boolean).join(' · '), color: RC.muted, fontSize: 8.5 }] : []),
+                ...(s.url ? [{ ...rLink(s.url), fontSize: 8 }] : []),
+                ...(s.notes ? [{ text: s.notes, fontSize: 8.5, color: '#334155', margin: [0, 3, 0, 0] }] : [])
+            ]
+        },
+        rText(typeShort(s.type)),
+        rText(label(L.SOURCE_STANCES, s.stance))
+    ]);
+    const research = [
+        rHeading(2, 'Investigación'),
+        rSub('Fuentes de verificación'),
+        {
+            text: `${sources.length} fuente(s) registrada(s) · mínimo requerido: ${L.MIN_VERIFICATION_SOURCES} independientes · respaldan: ${stanceCount('respalda')} · contradicen: ${stanceCount('contradice')} · aportan contexto: ${stanceCount('contexto')}`,
+            style: 'muted', margin: [0, 0, 0, 6]
+        },
+        sources.length ? {
+            table: {
+                headerRows: 1,
+                dontBreakRows: true,
+                widths: [22, '*', 75, 70],
+                body: [
+                    ['N°', 'Fuente', 'Tipo', 'Postura'].map(h => ({ text: h.toUpperCase(), style: 'th' })),
+                    ...sourceRows
+                ]
+            },
+            layout: rGridLayout(),
+            fontSize: 9
+        } : { text: 'Aún no se registran fuentes de verificación.', color: RC.na, italics: true },
+        ...(idea.single_source_exception ? [rSub('Excepción de fuente única'), ...rParagraphs(idea.single_source_exception)] : [])
     ];
 
-    const title = reportFileName(idea);
-    return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(title)}</title>
-<style>
-    @page { size: A4; margin: 18mm 18mm 20mm; @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8pt Arial, sans-serif; color: #5b6b86; } @bottom-left { content: "Fast Check INNEXA · Propuesta ${escapeHtml(String(idea.id))}"; font: 8pt Arial, sans-serif; color: #5b6b86; } }
-    * { box-sizing: border-box; }
-    html { background: #e9edf3; }
-    body { margin: 0; color: #0f1b33; font: 10.5pt/1.55 Georgia, 'Times New Roman', serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .toolbar { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 12px 16px; background: #0B2A6F; color: #fff; font: 13px/1.4 Arial, sans-serif; }
-    .toolbar button { font: 600 14px Arial, sans-serif; padding: 9px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; cursor: pointer; }
-    .toolbar button.primary { background: #F28C28; border-color: #F28C28; }
-    .toolbar span { opacity: .8; }
-    .page { width: 210mm; max-width: 100%; margin: 24px auto; padding: 18mm; background: #fff; box-shadow: 0 8px 30px rgba(11,42,111,.15); }
-    header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; border-bottom: 3px solid #0B2A6F; padding-bottom: 10px; }
-    header img { height: 46px; }
-    header .meta { text-align: right; font: 9pt/1.5 Arial, sans-serif; color: #5b6b86; }
-    .doc-title { margin: 18px 0 4px; font: 700 19pt/1.25 Arial, sans-serif; color: #0B2A6F; }
-    .doc-sub { margin: 0 0 14px; font: 10pt Arial, sans-serif; color: #5b6b86; letter-spacing: .04em; text-transform: uppercase; }
-    .summary { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #d5dce8; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
-    .summary div { padding: 8px 10px; border-right: 1px solid #d5dce8; border-bottom: 1px solid #d5dce8; font: 10pt Arial, sans-serif; }
-    .summary div:nth-child(3n) { border-right: 0; }
-    .summary div:nth-last-child(-n+3) { border-bottom: 0; }
-    .summary small { display: block; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .06em; color: #5b6b86; }
-    section { margin-top: 20px; }
-    h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding-bottom: 5px; border-bottom: 1px solid #d5dce8; font: 700 13pt Arial, sans-serif; color: #0B2A6F; break-after: avoid; }
-    h2 .num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #0B2A6F; color: #fff; font-size: 10pt; }
-    h3 { margin: 14px 0 6px; font: 700 10.5pt Arial, sans-serif; color: #043087; break-after: avoid; }
-    p { margin: 0 0 8px; text-align: justify; }
-    a { color: #043087; word-break: break-all; }
-    blockquote { margin: 0 0 12px; padding: 10px 14px; border-left: 4px solid #F28C28; background: #fdf5ec; font-size: 12pt; font-style: italic; }
-    table { width: 100%; border-collapse: collapse; margin: 0 0 8px; break-inside: auto; }
-    tr { break-inside: avoid; }
-    .kv th { width: 34%; text-align: left; vertical-align: top; padding: 5px 10px 5px 0; font: 600 9pt Arial, sans-serif; color: #5b6b86; }
-    .kv td { padding: 5px 0; vertical-align: top; }
-    .kv tr + tr th, .kv tr + tr td { border-top: 1px dotted #d5dce8; }
-    .grid th, .grid td { border: 1px solid #d5dce8; padding: 6px 8px; vertical-align: top; font-size: 9.5pt; }
-    .grid th { background: #eef2f8; font: 700 8.5pt Arial, sans-serif; text-align: left; text-transform: uppercase; letter-spacing: .04em; color: #0B2A6F; }
-    .grid .c, .grid th.c { text-align: center; white-space: nowrap; }
-    .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1.5px solid var(--c); color: var(--c); font: 700 9.5pt Arial, sans-serif; }
-    .na { color: #94a3b8; font-style: italic; }
-    .muted { color: #5b6b86; font-size: 9.5pt; }
-    .sources td { font-size: 9pt; }
-    .sources td:first-child { width: 30px; font: 700 9pt Arial, sans-serif; color: #F28C28; }
-    .sources td:nth-child(3), .sources td:nth-child(4) { width: 17%; }
-    .src-meta { color: #5b6b86; font-size: 8.5pt; }
-    .src-link { font-size: 8pt; }
-    .src-notes { margin-top: 3px; font-size: 8.5pt; color: #334155; }
-    .refs { margin: 0; padding-left: 20px; }
-    .verdict { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #f4f6fa; border-radius: 6px; }
-    .verdict-label { font: 700 9pt Arial, sans-serif; text-transform: uppercase; letter-spacing: .05em; color: #0B2A6F; }
-    footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #d5dce8; font: 8pt Arial, sans-serif; color: #5b6b86; }
-    @media (max-width: 720px) {
-        .page { margin: 0; padding: 16px; box-shadow: none; }
-        .summary { grid-template-columns: 1fr 1fr; }
-        .summary div { border-right: 1px solid #d5dce8 !important; border-bottom: 1px solid #d5dce8 !important; }
-        .kv th { width: 40%; }
-    }
-    @media print {
-        html { background: #fff; }
-        .toolbar { display: none; }
-        .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
-    }
-</style>
-</head>
-<body>
-<div class="toolbar">
-    <button class="primary" onclick="window.print()">⬇ Descargar PDF</button>
-    <button onclick="window.close()">Cerrar</button>
-    <span>En el diálogo, elige “Guardar como PDF” y desmarca “Encabezados y pies de página”.</span>
-</div>
-<div class="page">
-    <header>
-        <img src="${escapeHtml(logo)}" alt="INNEXA HUB UDLA">
-        <div class="meta">Fast Check INNEXA · Workspace de verificación<br>Emitido el ${escapeHtml(reportDate(now, true))}</div>
-    </header>
-    <h1 class="doc-title">Propuesta de verificación N° ${escapeHtml(String(idea.id))}</h1>
-    <p class="doc-sub">Informe de investigación para revisión académica</p>
-    <div class="summary">
-        <div><small>Etapa actual</small>${escapeHtml(stage.label)}</div>
-        <div><small>Categoría</small>${reportText(idea.category)}</div>
-        <div><small>Fecha de la afirmación</small>${reportText(reportDate(idea.claim_date))}</div>
-        <div><small>Responsable</small>${reportText(idea.owner)}</div>
-        <div><small>Veredicto propuesto</small>${verdict ? escapeHtml(verdict.label) : '<span class="na">Pendiente</span>'}</div>
-        <div><small>Última edición</small>${escapeHtml(reportDate(idea.last_edited_at) || '—')}</div>
-    </div>
-    ${sections.join('')}
-    <footer>Documento generado automáticamente desde Fast Check INNEXA a partir de la información registrada por el equipo.
-        Basado en los Lineamientos Fast Check INNEXA v3.0. Escala de veredictos: ${VERDICTS.map(v => escapeHtml(v.label)).join(' · ')}.</footer>
-</div>
-</body>
-</html>`;
+    // 3 · Veredicto y análisis
+    const conclusion = [
+        rHeading(3, 'Veredicto y análisis'),
+        {
+            table: {
+                widths: ['auto', 'auto', '*'],
+                body: [[
+                    { text: 'VEREDICTO PROPUESTO', style: 'tiny', bold: true, color: RC.navy, margin: [0, 2, 0, 0] },
+                    verdict ? { text: verdict.label, bold: true, color: verdictColor } : { text: 'Sin definir', color: RC.na, italics: true },
+                    verdict && verdict.hint ? { text: verdict.hint, style: 'muted' } : ''
+                ]]
+            },
+            layout: {
+                hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => RC.verdictBg,
+                paddingLeft: () => 10, paddingRight: () => 6, paddingTop: () => 8, paddingBottom: () => 8
+            },
+            margin: [0, 0, 0, 4]
+        },
+        rSub('Explicación'),
+        ...rParagraphs(idea.analysis),
+        rSub('Contexto que falta'),
+        ...rParagraphs(idea.missing_context)
+    ];
+
+    return {
+        pageSize: 'A4',
+        pageMargins: [40, 40, 40, 50],
+        // Un título de sección no queda solo al final de una página.
+        pageBreakBefore: (node, followingOnPage) => node.headlineLevel === 1 && followingOnPage.length < 6,
+        info: { title: reportFileName(idea), author: 'Fast Check INNEXA', subject: idea.title || '' },
+        defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.25, color: RC.text },
+        styles: {
+            title: { fontSize: 19, bold: true, color: RC.navy },
+            subtitle: { fontSize: 9.5, color: RC.muted, characterSpacing: 0.5 },
+            h2: { fontSize: 13, bold: true, color: RC.navy },
+            h3: { fontSize: 10.5, bold: true, color: RC.blue },
+            kvLabel: { fontSize: 9, bold: true, color: RC.muted },
+            th: { fontSize: 8, bold: true, color: RC.navy },
+            tiny: { fontSize: 7, color: RC.muted, characterSpacing: 0.4 },
+            muted: { fontSize: 9, color: RC.muted }
+        },
+        footer: (page, pages) => ({
+            columns: [
+                { text: `Fast Check INNEXA · Propuesta ${idea.id}`, alignment: 'left' },
+                { text: `Página ${page} de ${pages}`, alignment: 'right' }
+            ],
+            fontSize: 8, color: RC.muted, margin: [40, 18, 40, 0]
+        }),
+        content: [
+            {
+                columns: [
+                    logo ? { image: logo, width: 120 } : { text: 'INNEXA HUB', bold: true, color: RC.navy, fontSize: 14 },
+                    { text: [`Fast Check INNEXA · Workspace de verificación\nEmitido el ${reportDate(new Date(), true)}`], alignment: 'right', fontSize: 8.5, color: RC.muted, margin: [0, 14, 0, 0] }
+                ]
+            },
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 2.5, lineColor: RC.navy }], margin: [0, 8, 0, 14] },
+            { text: `Propuesta de verificación N° ${idea.id}`, style: 'title' },
+            { text: 'INFORME DE INVESTIGACIÓN PARA REVISIÓN ACADÉMICA', style: 'subtitle', margin: [0, 3, 0, 12] },
+            rSummary([
+                ['Etapa actual', { text: stage.label }],
+                ['Categoría', rText(idea.category)],
+                ['Fecha de la afirmación', rText(reportDate(idea.claim_date))],
+                ['Responsable', rText(idea.owner)],
+                ['Veredicto propuesto', verdict ? { text: verdict.label } : { text: 'Pendiente', color: RC.na, italics: true }],
+                ['Última edición', { text: reportDate(idea.last_edited_at) || '—' }]
+            ]),
+            ...claim,
+            ...research,
+            ...conclusion,
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.6, lineColor: RC.line }], margin: [0, 18, 0, 6] },
+            {
+                text: `Documento generado automáticamente desde Fast Check INNEXA a partir de la información registrada por el equipo. Basado en los Lineamientos Fast Check INNEXA v3.0. Escala de veredictos: ${VERDICTS.map(v => v.label).join(' · ')}.`,
+                fontSize: 8, color: RC.muted
+            }
+        ]
+    };
 }
 
-// Abre el reporte en una pestaña nueva. Debe llamarse desde un clic (bloqueador de ventanas).
-function openReport(idea) {
-    const win = window.open('', '_blank');
-    if (!win) {
-        showToast('⚠️ El navegador bloqueó la ventana del reporte. Permite ventanas emergentes para esta página.', 'warning', 8000);
-        return;
+// --- Descarga ---
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
+        document.head.appendChild(script);
+    });
+}
+
+let reportLibsLoading = null;
+
+function loadReportLibs() {
+    if (window.pdfMake && window.pdfMake.vfs) return Promise.resolve();
+    if (!reportLibsLoading) {
+        reportLibsLoading = REPORT_LIBS.reduce((chain, src) => chain.then(() => loadScript(src)), Promise.resolve())
+            .catch(error => { reportLibsLoading = null; throw error; });
     }
-    win.document.open();
-    win.document.write(buildReportHtml(idea));
-    win.document.close();
+    return reportLibsLoading;
+}
+
+async function loadReportLogo() {
+    try {
+        const blob = await (await fetch(REPORT_LOGO)).blob();
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        return null;
+    }
+}
+
+// Genera el PDF de la idea y lo descarga como archivo.
+async function downloadReport(idea) {
+    showToast('Generando el PDF de la propuesta…', 'success', 2500);
+    try {
+        const [, logo] = await Promise.all([loadReportLibs(), loadReportLogo()]);
+        pdfMake.createPdf(buildReportDoc(idea, logo)).download(`${reportFileName(idea)}.pdf`);
+    } catch (error) {
+        console.error('Report error:', error);
+        showToast(`✗ No se pudo generar el PDF. Detalle: ${error.message}`, 'error', 8000);
+    }
 }

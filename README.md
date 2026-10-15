@@ -2,7 +2,7 @@
 
 Tablero colaborativo para gestionar ideas de fact-checking (Ideas Iniciales → En Discusión → En Proceso → Pendiente Publicación → Publicadas), con datos guardados en **Supabase** y sincronización automática entre usuarios cada 3 segundos.
 
-Migrado desde el artifact de Claude a un sitio estático (HTML + CSS + JS, sin dependencias ni build).
+Migrado desde el artifact de Claude a un sitio estático (HTML + CSS + JS, sin build; la única librería externa es pdfmake, incluida en `js/vendor/`).
 
 ## Estructura
 
@@ -15,7 +15,8 @@ js/config.js          URL y publishable key de Supabase
 js/lineamientos.js    Checklist, tipos de fuente y motivos de descarte
 js/supabase.js        Cliente mínimo de la API REST de Supabase
 js/prioridad.js       Matriz de priorización automática
-js/reporte.js         Reporte formal descargable de cada propuesta
+js/reporte.js         Reporte formal descargable de cada propuesta (PDF)
+js/vendor/            pdfmake (genera el PDF del reporte)
 js/investigacion.js   Investigación profunda IA: prompt e importación del informe
 js/app.js             Lógica del tablero
 supabase/schema.sql   Tabla fast_check_ideas + políticas RLS
@@ -68,13 +69,13 @@ quedan en *Contexto que falta*.
 
 ## Reporte de la propuesta
 
-Desde **En Discusión** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**, arriba a la derecha del formulario.
-Abre en una pestaña nueva un informe formal en formato A4 con toda la información de la idea:
-afirmación, fuentes de verificación, veredicto y análisis,
-veredicto y análisis. Las fuentes de verificación van en una tabla compacta.
-Incluye lo escrito en el formulario aunque todavía no se haya guardado. **Descargar PDF** abre el
-diálogo de impresión del navegador: elegir *Guardar como PDF*. Los campos vacíos aparecen como
-*No informado* para que se vea qué falta. El formato se edita en `js/reporte.js`.
+Desde **En Discusión** (y en las etapas siguientes) cada idea tiene el botón **⬇ Descargar propuesta**,
+arriba a la derecha del formulario. Descarga directamente un PDF A4 (`Propuesta Fast Check 001 - ….pdf`)
+con la afirmación, las fuentes de verificación en una tabla compacta, el veredicto y el análisis.
+Incluye lo escrito en el formulario aunque todavía no se haya guardado, y los campos vacíos aparecen
+como *No informado*. El PDF se arma en el navegador con [pdfmake](https://github.com/bpampuch/pdfmake)
+0.2.20 (licencia MIT, en `js/vendor/`), que se carga solo al pedir el primer reporte. El formato se edita
+en `js/reporte.js`.
 
 ## Matriz de priorización
 
